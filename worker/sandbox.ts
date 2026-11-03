@@ -253,7 +253,7 @@ export async function runSandbox(t: SandboxTask): Promise<SandboxResult> {
   const started = Date.now();
   active.add(name);
   try {
-    containerId = (await docker(containerArgs(name, ip, caps, workDir, { "blastdoor.managed": "1", "blastdoor.run": t.runId, "blastdoor.task": taskId, "blastdoor.created": String(Date.now()) }, uid))).trim();
+    containerId = (await docker(containerArgs(name, ip, caps, workDir, { "blastdoor.managed": "1", "blastdoor.owner": config.sandbox.owner, "blastdoor.run": t.runId, "blastdoor.task": taskId, "blastdoor.created": String(Date.now()) }, uid))).trim();
     const ins = JSON.parse(await docker(["inspect", containerId]))[0];
     inspect = {
       readonlyRootfs: !!ins.HostConfig.ReadonlyRootfs,
@@ -306,7 +306,10 @@ export async function runSandbox(t: SandboxTask): Promise<SandboxResult> {
       t.onLifecycle?.("wall_clock_kill", { container: name, afterMs: Date.now() - started, limitMs: caps.timeoutMs });
       await docker(["kill", containerId], 15000).catch(() => {});
     }, caps.timeoutMs);
-    await new Promise<void>((resolve) => proc.on("exit", () => resolve()));
+    const attachDone = new Promise<void>((resolve) => proc.on("exit", () => resolve()));
+    // The attach stream can drop while the container keeps running, so wait on the container itself.
+    await docker(["wait", containerId], caps.timeoutMs + 30_000).catch(() => {});
+    await Promise.race([attachDone, new Promise((r) => setTimeout(r, 2000))]);
     clearInterval(poll);
     clearTimeout(killer);
     try {
@@ -362,7 +365,7 @@ export async function destroyContainer(ref: string): Promise<boolean> {
 
 /** Removes any managed container this process is not actively running (crash leftovers). */
 export async function reapOrphans(): Promise<string[]> {
-  const out = await docker(["ps", "-a", "--filter", "label=blastdoor.managed=1", "--format", "{{.Names}}"]).catch(() => "");
+  const out = await docker(["ps", "-a", "--filter", "label=blastdoor.managed=1", "--filter", `label=blastdoor.owner=${config.sandbox.owner}`, "--format", "{{.Names}}"]).catch(() => "");
   const names = out.split("\n").map((s) => s.trim()).filter(Boolean);
   const reaped: string[] = [];
   for (const n of names) {

@@ -30,14 +30,14 @@ test("failure: a runner error still destroys the container", async () => {
 
 test("timeout: the wall clock kills and destroys a hung task", async () => {
   const r = await sandbox.runSandbox({ ...base, runId: newRunId(), label: "hang", mode: "probe", input: { probe: "cpu", holdMs: 60_000 }, caps: { timeoutMs: 4000 } });
-  assert.equal(r.timedOut, true);
+  assert.equal(r.timedOut, true, `exit ${r.exitCode} after ${r.durationMs}ms: ${r.stderrTail.join(" | ")}`);
   assert.ok(r.durationMs < 20_000);
   assert.equal(r.destroyed, true);
   await assertClean();
 });
 
 test("crash: an orphan left by a dead orchestrator is reaped", async () => {
-  await sandbox.docker(["run", "-d", "--label", "blastdoor.managed=1", "--name", "bd-orphan-test", "--network", "none", "--entrypoint", "sleep", "blastdoor/sandbox:1", "300"]);
+  await sandbox.docker(["run", "-d", "--label", "blastdoor.managed=1", "--label", `blastdoor.owner=${process.env.BLASTDOOR_SANDBOX_OWNER}`, "--name", "bd-orphan-test", "--network", "none", "--entrypoint", "sleep", "blastdoor/sandbox:1", "300"]);
   const reaped = await sandbox.reapOrphans();
   assert.ok(reaped.includes("bd-orphan-test"));
   await assertClean();

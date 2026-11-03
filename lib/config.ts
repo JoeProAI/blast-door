@@ -69,6 +69,8 @@ export const config = {
   publicRunsPerDay: num("BLASTDOOR_PUBLIC_RUNS_PER_DAY", 40),
   sandbox: {
     image: str("BLASTDOOR_SANDBOX_IMAGE", "blastdoor/sandbox:1"),
+    // Each orchestrator only reaps containers it owns, so tests and the live worker never collide.
+    owner: str("BLASTDOOR_SANDBOX_OWNER", "worker"),
     network: str("BLASTDOOR_SANDBOX_NET", "bd-sandbox"),
     bridge: str("BLASTDOOR_SANDBOX_BRIDGE", "bd0"),
     subnet: str("BLASTDOOR_SANDBOX_SUBNET", "172.31.250.0/24"),

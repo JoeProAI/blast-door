@@ -9,6 +9,7 @@ import path from "node:path";
 process.env.BLASTDOOR_DATA_DIR ??= fs.mkdtempSync(path.join(os.tmpdir(), "bd-test-"));
 process.env.BLASTDOOR_BROKER_PORT = process.env.BLASTDOOR_TEST_BROKER_PORT ?? "8792";
 process.env.BLASTDOOR_PROXY_PORT = process.env.BLASTDOOR_TEST_PROXY_PORT ?? "8793";
+process.env.BLASTDOOR_SANDBOX_OWNER = `test-${process.pid}`;
 process.env.BLASTDOOR_SANDBOX_IP_START = "200";
 process.env.BLASTDOOR_SANDBOX_IP_END = "240";
 // A fake secret in the orchestrator's own env. The no-secrets test proves it never crosses into a container.
