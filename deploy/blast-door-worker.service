@@ -1,0 +1,24 @@
+[Unit]
+Description=Blast Door worker (orchestrator, broker, egress proxy)
+After=blast-door-net.service docker.service
+Requires=blast-door-net.service
+
+[Service]
+User=blastdoor
+Group=blastdoor
+SupplementaryGroups=docker
+WorkingDirectory=/opt/blast-door
+EnvironmentFile=/etc/blast-door/app.env
+# The only process that sees the inference key. Root-only file, read by systemd.
+EnvironmentFile=/etc/blast-door/env
+ExecStart=/usr/bin/node --import tsx worker/index.ts
+Restart=always
+RestartSec=3
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/blast-door
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

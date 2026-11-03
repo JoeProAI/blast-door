@@ -1,0 +1,21 @@
+[Unit]
+Description=Blast Door control plane UI and API (Next.js)
+After=network.target
+
+[Service]
+User=blastdoor
+Group=blastdoor
+WorkingDirectory=/opt/blast-door
+# No inference key here. The web process never calls a model.
+EnvironmentFile=/etc/blast-door/app.env
+ExecStart=/usr/bin/node node_modules/next/dist/bin/next start -p 3000 -H 127.0.0.1
+Restart=always
+RestartSec=3
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/blast-door /opt/blast-door/.next/cache
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

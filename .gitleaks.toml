@@ -1,0 +1,10 @@
+title = "blast-door"
+[extend]
+useDefault = true
+[[rules]]
+id = "vultr-api-key"
+description = "Vultr API key"
+regex = '''\b[A-Z0-9]{36}\b'''
+keywords = ["vultr"]
+[allowlist]
+paths = ['''package-lock\.json''', '''sandbox/runner/package-lock\.json''']
