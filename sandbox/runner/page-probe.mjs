@@ -2,7 +2,7 @@
 
 export function snapshotInPage(maxEls) {
   const cssPath = (el) => {
-    if (el.id && document.querySelectorAll("#" + CSS.escape(el.id)).length === 1) return "#" + CSS.escape(el.id);
+    if (el.getAttribute("id") && document.querySelectorAll("#" + CSS.escape(el.getAttribute("id"))).length === 1) return "#" + CSS.escape(el.getAttribute("id"));
     const tid = el.getAttribute("data-testid");
     if (tid) return `[data-testid="${tid}"]`;
     const nm = el.getAttribute("name");
@@ -13,8 +13,8 @@ export function snapshotInPage(maxEls) {
     let cur = el;
     while (cur && cur.nodeType === 1 && cur !== document.body && parts.length < 6) {
       let sel = cur.tagName.toLowerCase();
-      if (cur.id) {
-        parts.unshift("#" + CSS.escape(cur.id));
+      if (cur.getAttribute("id")) {
+        parts.unshift("#" + CSS.escape(cur.getAttribute("id")));
         break;
       }
       const sibs = cur.parentElement ? Array.from(cur.parentElement.children).filter((c) => c.tagName === cur.tagName) : [];
@@ -102,7 +102,7 @@ export function snapshotInPage(maxEls) {
 export function auditInPage() {
   const out = [];
   const short = (el) => {
-    const id = el.id ? "#" + el.id : "";
+    const id = el.getAttribute("id") ? "#" + el.getAttribute("id") : "";
     const cls = el.className && typeof el.className === "string" ? "." + el.className.trim().split(/\s+/).slice(0, 2).join(".") : "";
     return el.tagName.toLowerCase() + id + cls;
   };
@@ -176,7 +176,7 @@ export function auditInPage() {
     }
   }
   const ids = {};
-  for (const el of Array.from(document.querySelectorAll("[id]"))) ids[el.id] = (ids[el.id] || 0) + 1;
+  for (const el of Array.from(document.querySelectorAll("[id]"))) ids[el.getAttribute("id")] = (ids[el.getAttribute("id")] || 0) + 1;
   const dups = Object.entries(ids).filter(([, n]) => n > 1).map(([k]) => k);
   if (dups.length) out.push({ kind: "a11y", message: `duplicate id values: ${dups.slice(0, 5).join(", ")}`, detail: { rule: "duplicate-id" } });
   return out;
@@ -192,7 +192,7 @@ export function overflowInPage() {
     if (r.right > vw + 2 && r.width > 0 && getComputedStyle(el).position !== "fixed") {
       const parentOver = el.parentElement && el.parentElement.getBoundingClientRect().right > vw + 2;
       if (!parentOver || el.parentElement === document.body) {
-        const id = el.id ? "#" + el.id : "";
+        const id = el.getAttribute("id") ? "#" + el.getAttribute("id") : "";
         const cls = el.className && typeof el.className === "string" ? "." + el.className.trim().split(/\s+/)[0] : "";
         culprits.push({ selector: el.tagName.toLowerCase() + id + cls, right: Math.round(r.right), width: Math.round(r.width) });
       }

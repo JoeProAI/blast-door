@@ -149,7 +149,7 @@ export async function judgeShots(runId: string, shots: Shot[]): Promise<JudgedSh
       label: shot.label,
       viewport: shot.viewport,
       scores: j.scores,
-      issues: j.issues.map((i) => ({ title: i.title, rubric: i.rubric, confidence: i.confidence })),
+      issues: j.issues.map((i) => ({ title: clip(i.title, 160), rubric: i.rubric, confidence: i.confidence })),
       model: j.model,
       error: j.error,
     });
@@ -205,6 +205,19 @@ function logsFor(signals: Signal[], page: string, viewport?: string): string[] {
 const FLOW_BUG = /\b(bug|incorrect|wrong|broken|mismatch|does not|doesn't|did not|fails?|failed|error|500|404|missing)\b/i;
 const FLOW_CLEAN = /\b(no (bugs?|issues?|errors?|problems?)( were)? found|works? (as expected|correctly))\b/i;
 
+export function flowTitle(outcome: string): string {
+  const sentences = outcome.replace(/^BUG FOUND:\s*/i, "").split(/(?<=[.!?])\s+/).filter(Boolean);
+  const hit = sentences.find((x) => FLOW_BUG.test(x) && !FLOW_CLEAN.test(x)) ?? sentences[0] ?? outcome;
+  return clip(hit, 160);
+}
+
+export function clip(text: string, max: number): string {
+  if (text.length <= max) return text;
+  const cut = text.slice(0, max);
+  const at = cut.lastIndexOf(" ");
+  return `${(at > max * 0.6 ? cut.slice(0, at) : cut).replace(/[\s,;:(]+$/, "")}...`;
+}
+
 export function buildCandidates(sweep: SweepOutput, judged: JudgedShot[], max = config.budget.maxCandidates): CandidateBug[] {
   const out: CandidateBug[] = [];
   const signals = sweep.signals ?? [];
@@ -216,7 +229,7 @@ export function buildCandidates(sweep: SweepOutput, judged: JudgedShot[], max = 
     const page = last?.url ?? f.startUrl;
     out.push({
       id: "",
-      title: outcome.split(/(?<=[.!?])\s/)[0].replace(/^BUG FOUND:\s*/i, "").slice(0, 140),
+      title: flowTitle(outcome),
       category: "functional",
       severity: "high",
       source: "flow",
@@ -231,10 +244,14 @@ export function buildCandidates(sweep: SweepOutput, judged: JudgedShot[], max = 
     });
   }
 
+  const visionSeen = new Set<string>();
   for (const j of judged) {
     if (!j.scores) continue;
-    for (const i of j.issues) {
+    for (const i of [...j.issues].sort((a, b) => b.confidence - a.confidence)) {
       if (i.confidence < 0.5 || j.scores[i.rubric] > 7) continue;
+      const key = `${j.shot.page}|${j.shot.viewport}|${i.rubric}`;
+      if (visionSeen.has(key)) continue;
+      visionSeen.add(key);
       out.push({
         id: "",
         title: i.title,
@@ -270,7 +287,7 @@ export function buildCandidates(sweep: SweepOutput, judged: JudgedShot[], max = 
     const severity = s.kind === "http_error" && status >= 500 ? "high" : SIGNAL_SEVERITY[s.kind] ?? "low";
     out.push({
       id: "",
-      title: `${s.kind.replace("_", " ")}: ${s.message}`.slice(0, 140),
+      title: clip(`${s.kind.replace("_", " ")}: ${s.message}`, 160),
       category: s.kind,
       severity,
       source: "signal",

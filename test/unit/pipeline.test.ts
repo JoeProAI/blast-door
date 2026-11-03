@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildCandidates, pickShots } from "../../worker/judge";
+import { buildCandidates, flowTitle, pickShots } from "../../worker/judge";
 import { evidenceGate } from "../../worker/adversary";
 import { classify, templateFor, validateTest } from "../../worker/repro";
 import type { Bug, JudgedShot, SweepOutput } from "../../lib/types";
@@ -100,4 +100,16 @@ test("classify: only an assertion failure counts as reproduced", () => {
   assert.equal(classify({ status: "failed", error: { message: "locator.click: Timeout 5000ms exceeded" } }).status, "inconclusive");
   assert.equal(classify({ status: "timedOut", error: { message: "Error: Test timeout of 25000ms exceeded." } }).status, "inconclusive");
   assert.equal(classify(undefined).status, "not_run");
+});
+
+test("flow titles use the sentence that names the defect", () => {
+  assert.equal(flowTitle("All nav links have been tested. The Careers link returns a 404 page."), "The Careers link returns a 404 page.");
+  assert.equal(flowTitle("BUG FOUND: Subtotal is wrong."), "Subtotal is wrong.");
+});
+
+test("vision issues are deduplicated per page, viewport and rubric", () => {
+  const twice: JudgedShot[] = [{ ...judged[0], issues: [judged[0].issues[0], { ...judged[0].issues[0], title: "same overflow again", confidence: 0.7 }] }];
+  const c = buildCandidates(sweep, twice, 20).filter((x) => x.source === "vision");
+  assert.equal(c.length, 1);
+  assert.equal(c[0].confidence, 0.8);
 });

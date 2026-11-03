@@ -161,7 +161,7 @@ export function classify(result: any): Pick<ReproResult, "status" | "error" | "d
 }
 
 export async function runRepros(runId: string, bugs: Bug[], sweep: SweepOutput, allowHosts: string[], wiring: Pick<SandboxTask, "onLine" | "onEgress" | "onBroker" | "onLifecycle">) {
-  const targets = bugs.filter((b) => b.adversary.verdict === "survived").slice(0, 8);
+  const targets = bugs.filter((b) => b.adversary.verdict === "survived").slice(0, config.budget.maxCandidates);
   const files: Record<string, string> = { "playwright.config.mjs": PW_CONFIG };
   const specs = new Map<string, { bug: Bug; generator: ReproResult["generator"]; code: string }>();
   const notes = new Map<string, string>();
