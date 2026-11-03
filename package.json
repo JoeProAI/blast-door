@@ -18,7 +18,8 @@
     "typecheck": "tsc --noEmit",
     "lint:copy": "node scripts/lint-copy.mjs",
     "test": "node --import tsx --test test/unit/*.test.ts",
-    "test:sandbox": "node --import tsx --test --test-concurrency=1 test/sandbox/*.test.ts"
+    "test:sandbox": "node --import tsx --test --test-concurrency=1 test/sandbox/*.test.ts",
+    "prove": "tsx scripts/prove.ts"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",
