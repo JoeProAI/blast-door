@@ -149,7 +149,7 @@ export async function judgeShots(runId: string, shots: Shot[]): Promise<JudgedSh
       label: shot.label,
       viewport: shot.viewport,
       scores: j.scores,
-      issues: j.issues.map((i) => ({ title: clip(i.title, 160), rubric: i.rubric, confidence: i.confidence })),
+      issues: j.issues.map((i) => ({ title: clip(RUBRIC.includes(i.title as RubricKey) || i.title.trim().length < 8 ? i.evidence || i.title : i.title, 160), rubric: i.rubric, confidence: i.confidence })),
       model: j.model,
       error: j.error,
     });
