@@ -155,7 +155,7 @@ main { padding: var(--space-8) var(--space-6); max-width: 1320px; margin: 0 auto
 
 @media (max-width: 1080px) {
   .bay-hero, .bay-console, .bay-log { grid-column: 1 / -1; margin-top: 0; }
-  .run-grid { grid-template-columns: 1fr; }
+  .run-grid { grid-template-columns: minmax(0, 1fr); }
   .rail-tag { display: none; }
 }
 @media (max-width: 720px) {
