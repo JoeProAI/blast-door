@@ -306,17 +306,27 @@ export async function runSandbox(t: SandboxTask): Promise<SandboxResult> {
       t.onLifecycle?.("wall_clock_kill", { container: name, afterMs: Date.now() - started, limitMs: caps.timeoutMs });
       await docker(["kill", containerId], 15000).catch(() => {});
     }, caps.timeoutMs);
-    const attachDone = new Promise<void>((resolve) => proc.on("exit", () => resolve()));
-    // The attach stream can drop while the container keeps running, so wait on the container itself.
-    await docker(["wait", containerId], caps.timeoutMs + 30_000).catch(() => {});
-    await Promise.race([attachDone, new Promise((r) => setTimeout(r, 2000))]);
+    await new Promise<void>((resolve) => proc.on("exit", () => resolve()));
+    // The attach stream can end while the container keeps running, so only trust State.Running.
+    const hardStop = started + caps.timeoutMs + 30_000;
+    for (;;) {
+      let st: any = null;
+      try {
+        st = JSON.parse(await docker(["inspect", "-f", "{{json .State}}", containerId], 10_000));
+      } catch {}
+      if (st && !st.Running) {
+        exitCode = st.ExitCode;
+        oomKilled = !!st.OOMKilled;
+        break;
+      }
+      if (!st || Date.now() > hardStop) {
+        await docker(["kill", containerId], 15000).catch(() => {});
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 250));
+    }
     clearInterval(poll);
     clearTimeout(killer);
-    try {
-      const st = JSON.parse(await docker(["inspect", "-f", "{{json .State}}", containerId]));
-      exitCode = st.ExitCode;
-      oomKilled = !!st.OOMKilled;
-    } catch {}
     t.onLifecycle?.("exited", { container: name, exitCode, oomKilled, timedOut, ms: Date.now() - started });
   } catch (e) {
     log.error("sandbox failure", e);
