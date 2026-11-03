@@ -154,12 +154,14 @@ function emptyStats(): CgroupStats {
 }
 
 export function sampleCgroup(dir: string, s: CgroupStats) {
+  // The cgroup vanishes when the container exits; keep the last real sample instead of nulls.
+  if (!fs.existsSync(dir)) return;
   const memPeak = readNum(path.join(dir, "memory.peak")) ?? readNum(path.join(dir, "memory.current")) ?? 0;
   s.memoryPeak = Math.max(s.memoryPeak, memPeak);
-  s.memoryMax = readNum(path.join(dir, "memory.max"));
+  s.memoryMax = readNum(path.join(dir, "memory.max")) ?? s.memoryMax;
   const pidsPeak = readNum(path.join(dir, "pids.peak")) ?? readNum(path.join(dir, "pids.current")) ?? 0;
   s.pidsPeak = Math.max(s.pidsPeak, pidsPeak);
-  s.pidsMax = readNum(path.join(dir, "pids.max"));
+  s.pidsMax = readNum(path.join(dir, "pids.max")) ?? s.pidsMax;
   s.pidsMaxEvents = Math.max(s.pidsMaxEvents, readKv(path.join(dir, "pids.events")).max ?? 0);
   const me = readKv(path.join(dir, "memory.events"));
   s.oomEvents = Math.max(s.oomEvents, me.oom ?? 0);
