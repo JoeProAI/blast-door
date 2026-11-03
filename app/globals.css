@@ -268,3 +268,13 @@ main { padding: var(--space-8) var(--space-6); max-width: 1320px; margin: 0 auto
   .ctn-grid, .ctn-host dl { grid-template-columns: minmax(0, 1fr); }
 }
 @media (prefers-reduced-motion: reduce) { .door-leaf { transition: none; } }
+
+/* ---- narrow screens: rail, run table, panel heads ------------------------------------ */
+.rail nav { flex-wrap: wrap; }
+.panel-head { flex-wrap: wrap; gap: var(--space-2); }
+@media (max-width: 720px) {
+  .rail { flex-wrap: wrap; row-gap: 0; }
+  .rail nav { width: 100%; gap: 0; }
+  .rail nav a { padding: var(--space-3) var(--space-2); letter-spacing: .08em; }
+  .table { display: block; overflow-x: auto; max-width: 100%; }
+}

@@ -47,6 +47,8 @@ export function describe(e: Ev): { text: string; tone?: "bad" | "good" | "warn" 
     case "shot": return { text: `screenshot ${d.label} (${d.viewport})` };
     case "runner_flow": return { text: `flow "${d.name}": ${d.goal}` };
     case "runner_log": return { text: String(d.msg ?? ""), tone: d.level === "warn" ? "warn" : undefined };
+    case "runner_probe": return { text: `probe ${d.probe} reported${d.result?.env ? `: ${d.result.env.length} env values hashed, ${d.result.fsScan?.filesScanned ?? 0} files scanned` : d.result?.threads ? `: ${d.result.threads} threads for ${d.result.wallMs}ms` : ""}` };
+    case "runner_progress": return { text: `probe ${d.probe} ${(d.elapsedMs / 1000).toFixed(1)}s${d.runnerSpawnErrors !== undefined ? `, forks refused ${d.runnerSpawnErrors}` : ""}${d.mb !== undefined ? `, holding ${d.mb} MB` : ""}` };
     case "runner_done": return { text: `runner ${d.mode} done${d.shots !== undefined ? `: ${d.shots} shots, ${d.signals} signals` : ""}`, tone: "good" };
     case "runner_error": return { text: `runner error: ${d.message}`, tone: "bad" };
     case "judge_shot": return d.scores ? { text: `judge ${d.viewport} ${d.label}: lowest ${lowest(d.scores)}, ${d.issues?.length ?? 0} issues` } : { text: `judge ${d.label}: no verdict (${d.error})`, tone: "warn" };
