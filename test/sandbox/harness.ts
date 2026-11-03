@@ -38,6 +38,9 @@ export function newRunId() {
 }
 
 export async function shutdown() {
+  sandbox.stopDockerEvents();
+  broker.closeAllConnections();
+  proxy.closeAllConnections();
   broker.close();
   proxy.close();
   target.close();

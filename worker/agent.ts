@@ -103,7 +103,9 @@ export async function agentStep(
   history: unknown[],
   allowHosts: string[],
 ): Promise<Validated> {
-  const r = await chat({
+  let r;
+  try {
+    r = await chat({
     runId,
     stage,
     purpose: "agent step",
@@ -112,8 +114,13 @@ export async function agentStep(
       { role: "system", content: AGENT_SYSTEM },
       { role: "user", content: buildAgentPrompt(goal, step, maxSteps, obs, history) },
     ],
-    maxTokens: 400,
+    maxTokens: 900,
     schema: { name: "agent_action", schema: ACTION_SCHEMA },
-  });
+    });
+  } catch (e) {
+    const msg = (e as Error).message;
+    if (!/unparseable|JSON/i.test(msg)) throw e;
+    return { action: { action: "done", reason: "broker: model reply was not a valid action, flow ended" }, rejected: msg.slice(0, 160) };
+  }
   return validateAction(r.json, obs, allowHosts);
 }

@@ -83,8 +83,16 @@ export async function docker(args: string[], timeoutMs = 60_000): Promise<string
 type EvtListener = (e: { action: string; t: number }) => void;
 const evtListeners = new Map<string, EvtListener>();
 let eventsProc: ReturnType<typeof spawn> | null = null;
+let eventsWanted = false;
+
+export function stopDockerEvents() {
+  eventsWanted = false;
+  eventsProc?.kill();
+  eventsProc = null;
+}
 
 export function startDockerEvents() {
+  eventsWanted = true;
   if (eventsProc) return;
   eventsProc = spawn("docker", ["events", "--filter", "label=blastdoor.managed=1", "--filter", "type=container", "--format", "{{json .}}"]);
   let buf = "";
@@ -104,7 +112,7 @@ export function startDockerEvents() {
   });
   eventsProc.on("exit", () => {
     eventsProc = null;
-    setTimeout(startDockerEvents, 2000);
+    if (eventsWanted) setTimeout(startDockerEvents, 2000).unref();
   });
 }
 
