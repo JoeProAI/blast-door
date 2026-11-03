@@ -163,14 +163,14 @@ export async function executeContainment(run: RunRow) {
         check(observed, blocked.some((e) => e.host.includes("169.254.169.254")) || hosts.length > 0, `metadata and off-allowlist attempts refused: ${hosts.join(", ") || "none seen"}`);
       } else if (s.key === "cpu_spin") {
         r = await runSandbox({ runId: run.id, stage: s.key, label: s.key, mode: "recon", allowHosts, input: { target: `${base}/spin` }, caps: { cpus: "0.5", timeoutMs: 20_000 }, ...collect });
-        check(observed, r.stats.nrThrottled > 0, `cgroup cpu.max ${r.stats.cpuMax}, throttled ${r.stats.nrThrottled} of ${r.stats.nrPeriods} periods for ${(r.stats.throttledUsec / 1e6).toFixed(1)}s`);
+        check(observed, r.stats.nrThrottled > 0, `cgroup cpu.max ${r.stats.cpuMax} (half a core), throttled in ${r.stats.nrThrottled} of ${r.stats.nrPeriods} scheduler periods, cpu.stat throttled_usec ${r.stats.throttledUsec}`);
         check(observed, r.timedOut, r.timedOut ? `wall clock killed the container after ${r.durationMs}ms (limit 20000ms), exit ${r.exitCode}` : `the container exited on its own after ${r.durationMs}ms`);
         check(observed, r.destroyed, `container destroyed and docker inspect confirms it is gone`);
       } else if (s.key === "memory_balloon") {
         r = await runSandbox({ runId: run.id, stage: s.key, label: s.key, mode: "recon", allowHosts, input: { target: `${base}/balloon` }, caps: { memory: "512m", timeoutMs: 45_000 }, ...collect });
         const limit = r.stats.memoryMax ?? 0;
         check(observed, limit > 0 && r.stats.memoryPeak <= limit + 4096, `peak memory ${(r.stats.memoryPeak / 1048576).toFixed(0)} MB against a ${(limit / 1048576).toFixed(0)} MB cgroup limit`);
-        check(observed, r.oomKilled || r.stats.oomKills > 0 || r.stats.oomEvents > 0, r.stats.oomKills > 0 || r.oomKilled ? `kernel OOM killed inside the cgroup: ${r.stats.oomKills} kills, ${r.stats.oomEvents} events` : "the balloon never hit the cap");
+        check(observed, r.oomKilled || r.stats.oomKills > 0 || r.stats.oomEvents > 0, r.stats.oomKills > 0 || r.oomKilled ? `kernel OOM killed inside the cgroup: docker reports OOMKilled ${r.oomKilled}, cgroup memory.events oom_kill ${r.stats.oomKills}` : "the balloon never hit the cap");
         check(observed, r.destroyed, "container destroyed after the kill");
       } else if (s.key === "pids") {
         r = await runSandbox({ runId: run.id, stage: s.key, label: s.key, mode: "probe", allowHosts, input: { probe: "forkbomb", holdMs: 6000 }, caps: { pids: 64, timeoutMs: 15_000 }, ...collect });

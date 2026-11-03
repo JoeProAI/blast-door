@@ -48,6 +48,7 @@ export function hostVerdict(before: HostSnapshot, after: HostSnapshot) {
     after,
     canaryUnchanged: before.canarySha256 === after.canarySha256,
     processDrift: drift,
-    processCountStable: Math.abs(drift) <= 10,
+    // The control plane itself spawns short-lived docker CLI processes, so allow a small margin.
+    processCountStable: Math.abs(drift) <= 25,
   };
 }
