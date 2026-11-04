@@ -67,6 +67,14 @@ export function describe(e: Ev): { text: string; tone?: "bad" | "good" | "warn" 
   }
 }
 
+function killSummary(killed: any[]) {
+  const argued = killed.filter((b) => b.adversary?.modelVerdict === "killed").length;
+  const gated = killed.filter((b) => b.adversary?.modelVerdict === "holds").length;
+  const down = killed.filter((b) => b.adversary?.modelVerdict === "unavailable").length;
+  const parts = [argued && `the adversary argued ${argued} away as intended behavior, duplicates or setup artifacts`, gated && `${gated} failed the evidence gate (screenshot, log and steps)`, down && `${down} could not be challenged and were not reported`].filter(Boolean);
+  return `Of the ${killed.length} claims, ${parts.join("; ")}. Each kill reason is listed below.`;
+}
+
 export function fileUrl(id: string, p: string) {
   return `/api/runs/${id}/file?p=${encodeURIComponent(p)}`;
 }
@@ -206,17 +214,29 @@ export function RunView({ id, target, goal, initialStatus }: { id: string; targe
               ))}
             </div>
           ) : (
-            <p className="empty">No claim survived. The adversary killed every candidate, or the judge and sweep raised none. The killed list below shows why.</p>
+            <div className="verdict" role="status">
+              <span className="label">Verdict</span>
+              <p className="verdict-head">{bugs.length ? `Nothing survived. ${bugs.length} claim${bugs.length === 1 ? "" : "s"} raised, ${bugs.length} killed.` : "Nothing to report. The judge and the sweep raised no claims."}</p>
+              <p>{bugs.length ? killSummary(killed) : "Every page loaded, no console or network errors were logged, and the judge scored every frame above the reporting line."} A clean report is a result, not a failure: every claim had to beat an adversary from a different model family before it could reach this list.</p>
+            </div>
           )}
           {killed.length > 0 && (
-            <details className="killed">
-              <summary>Killed by the adversary ({killed.length})</summary>
+            <section className="killed" aria-labelledby="killed-title">
+              <h3 className="label" id="killed-title">Killed by the adversary ({killed.length})</h3>
               <ul>
                 {killed.map((b) => (
-                  <li key={b.id}><span className="tag">{b.id}</span><b>{b.title}</b><span>{b.adversary?.argument}</span></li>
+                  <li key={b.id}>
+                    <span className="tag">{b.id}</span>
+                    <b>{b.title}</b>
+                    <span className="kill-why">{b.adversary?.argument}</span>
+                    <span className="gate" aria-label="Evidence gate">
+                      <span className="tag" data-ok={b.adversary?.modelVerdict === "holds"}>adversary {b.adversary?.modelVerdict ?? "n/a"}</span>
+                      {(["screenshot", "log", "steps"] as const).map((g) => <span key={g} className="tag" data-ok={!!b.adversary?.gate?.[g]}>{g} {b.adversary?.gate?.[g] ? "yes" : "no"}</span>)}
+                    </span>
+                  </li>
                 ))}
               </ul>
-            </details>
+            </section>
           )}
         </section>
       )}
