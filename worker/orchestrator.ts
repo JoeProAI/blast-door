@@ -4,54 +4,18 @@ import { config } from "../lib/config";
 import { addEvent, getRun, updateRun, type RunRow } from "../lib/db";
 import { logger } from "../lib/log";
 import type { SweepOutput } from "../lib/types";
+import { runAdversary } from "./adversary";
+import { buildCandidates, judgeShots } from "./judge";
+import { runRepros } from "./repro";
 import { makePlan, type Recon } from "./planner";
-import { runSandbox, type SandboxResult, type SandboxTask } from "./sandbox";
+import { executeContainment } from "./containment";
+import { sandboxReceipt, wire } from "./orchestrator-wire";
+import { runSandbox, type SandboxResult } from "./sandbox";
 
 const log = logger("orchestrator");
 
 export function allowHostsFor(target: string): string[] {
   return [new URL(target).hostname.toLowerCase()];
-}
-
-/** Event plumbing shared by every sandbox task: lifecycle, egress, broker and runner lines all land in the run log. */
-export function wire(runId: string, stage: string): Pick<SandboxTask, "onLine" | "onEgress" | "onBroker" | "onLifecycle"> {
-  return {
-    onLine: (m) => {
-      const { type, _dir, ...rest } = m;
-      if (type === "shot") addEvent(runId, stage, "shot", { ...rest, file: path.join(_dir, "out", "shots", rest.file) });
-      else if (type === "step") addEvent(runId, stage, "agent_step", rest);
-      else addEvent(runId, stage, `runner_${type}`, rest);
-    },
-    onEgress: (r) => addEvent(runId, stage, r.allowed ? "egress_allowed" : "egress_blocked", r),
-    onBroker: (kind, data) => addEvent(runId, stage, `broker_${kind}`, data),
-    onLifecycle: (phase, data) => addEvent(runId, stage, `sandbox_${phase}`, data),
-  };
-}
-
-export function sandboxReceipt(r: SandboxResult) {
-  return {
-    taskId: r.taskId,
-    container: r.name,
-    containerId: r.containerId.slice(0, 12),
-    ip: r.ip,
-    exitCode: r.exitCode,
-    oomKilled: r.oomKilled,
-    timedOut: r.timedOut,
-    durationMs: r.durationMs,
-    caps: r.caps,
-    stats: r.stats,
-    destroyed: r.destroyed,
-    dockerEvents: r.dockerEvents.map((e) => e.action),
-    egressBlocked: r.egress.filter((e) => !e.allowed).length,
-    egressAllowed: r.egress.filter((e) => e.allowed).length,
-    brokerCalls: r.brokerCalls,
-    readonlyRootfs: r.inspect.readonlyRootfs,
-    capDrop: r.inspect.capDrop,
-    securityOpt: r.inspect.securityOpt,
-    user: r.inspect.user,
-    envNames: r.inspect.env.map((e) => e.split("=")[0]),
-    mounts: r.inspect.mounts.map((m) => m.replace(config.dataDir, "$DATA")),
-  };
 }
 
 function readOut<T>(r: SandboxResult, file: string): T | null {
@@ -118,9 +82,27 @@ export async function executeSweep(run: RunRow) {
     return out;
   });
 
+  const judged = await stage(run.id, "judge", async () => judgeShots(run.id, sweep.shots));
+  const candidates = buildCandidates(sweep, judged);
+  addEvent(run.id, "judge", "candidates", {
+    count: candidates.length,
+    vision: candidates.filter((c) => c.source === "vision").length,
+    signal: candidates.filter((c) => c.source === "signal").length,
+    flow: candidates.filter((c) => c.source === "flow").length,
+  });
+
+  const challenged = await stage(run.id, "adversary", async () => runAdversary(run.id, candidates, sweep));
+
+  const bugs = await stage(run.id, "repro", async () => {
+    const r = await runRepros(run.id, challenged, sweep, allowHosts, wire(run.id, "repro"));
+    if (r.receipt) receipts.push(sandboxReceipt(r.receipt));
+    return r.bugs;
+  });
+
   const fresh = getRun(run.id)!;
   const report = {
-    version: 1,
+    version: 2,
+    kind: "sweep" as const,
     runId: run.id,
     target: run.target,
     goal: run.goal,
@@ -128,6 +110,14 @@ export async function executeSweep(run: RunRow) {
     planFallback: usedFallback,
     recon: { title: recon.title, status: recon.status, shots: recon.shots, links: recon.links.length, forms: recon.forms.length },
     sweep,
+    judge: judged.map((j) => ({ shot: j.shot.file, page: j.shot.page, viewport: j.shot.viewport, label: j.shot.label, scores: j.scores, issues: j.issues, model: j.model, error: j.error })),
+    bugs,
+    summary: {
+      candidates: bugs.length,
+      survived: bugs.filter((b) => b.adversary.verdict === "survived").length,
+      killed: bugs.filter((b) => b.adversary.verdict === "killed").length,
+      reproduced: bugs.filter((b) => b.repro?.status === "reproduced").length,
+    },
     sandboxes: receipts,
     tokens: { prompt: fresh.tokens_prompt, completion: fresh.tokens_completion, costUsd: fresh.cost_usd, budget: fresh.token_budget },
     models: config.models,
@@ -140,10 +130,11 @@ export async function executeRun(run: RunRow) {
   log.info("run started", { id: run.id, kind: run.kind, target: run.target });
   addEvent(run.id, "run", "run_start", { target: run.target, goal: run.goal, kind: run.kind });
   try {
-    if (run.kind !== "sweep") throw new Error(`run kind ${run.kind} is not wired yet`);
-    const report = await executeSweep(run);
+    const report = run.kind === "containment" ? await executeContainment(run) : await executeSweep(run);
     updateRun(run.id, { status: "done", stage: "done", finished_at: Date.now(), report: JSON.stringify(report) });
-    addEvent(run.id, "run", "run_done", { shots: report.sweep.shots.length, signals: report.sweep.signals.length });
+    addEvent(run.id, "run", "run_done", report.kind === "containment"
+      ? { scenarios: report.summary.total, passed: report.summary.passed, failed: report.summary.failed }
+      : { shots: report.sweep.shots.length, signals: report.sweep.signals.length, ...report.summary });
   } catch (e) {
     const message = (e as Error).message.slice(0, 500);
     updateRun(run.id, { status: "failed", finished_at: Date.now(), error: message });
