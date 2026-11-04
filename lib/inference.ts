@@ -1,3 +1,4 @@
+import { dedash } from "./text";
 import crypto from "node:crypto";
 import { config } from "./config";
 import { addEvent, addRunTokens, db, getRun, tokensToday } from "./db";
@@ -236,7 +237,7 @@ export async function chat(o: ChatOptions): Promise<ChatResult> {
   const started = Date.now();
   let data = await post(body);
   let msg = data?.choices?.[0]?.message ?? {};
-  let text: string = (msg.content ?? "").toString();
+  let text: string = dedash((msg.content ?? "").toString());
   let usage = data?.usage ?? {};
   // Reasoning models can spend the whole allowance thinking. One bounded retry with more room.
   if (!text.trim() && data?.choices?.[0]?.finish_reason === "length") {
@@ -249,7 +250,7 @@ export async function chat(o: ChatOptions): Promise<ChatResult> {
     };
     data = retry;
     msg = data?.choices?.[0]?.message ?? {};
-    text = (msg.content ?? "").toString();
+    text = dedash((msg.content ?? "").toString());
   }
   const promptTokens = Number(usage.prompt_tokens ?? 0);
   const completionTokens = Number(usage.completion_tokens ?? 0);
