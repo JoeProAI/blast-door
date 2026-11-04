@@ -385,7 +385,6 @@ function ShotTrail({ id, shots }: { id: string; shots: TrailShot[] }) {
     </>
   );
 }
-||||||| b15b9e6
 
 const SEVS = ["critical", "high", "medium", "low"] as const;
 
