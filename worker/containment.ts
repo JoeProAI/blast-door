@@ -102,7 +102,7 @@ function shotsOf(r: SandboxResult | null, runId: string): string[] {
   if (!r) return [];
   const dir = path.join(r.outDir, "shots");
   try {
-    return fs.readdirSync(dir).map((f) => path.join(r.relDir, "out", "shots", f));
+    return fs.readdirSync(dir).filter((f) => f.endsWith(".jpg")).map((f) => path.join(r.relDir, "out", "shots", f));
   } catch {
     return [];
   }

@@ -15,6 +15,7 @@ export interface Signal {
 
 export interface Shot {
   file: string;
+  thumb?: string;
   page: string;
   viewport: "desktop" | "mobile";
   label: string;

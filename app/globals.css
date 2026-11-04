@@ -139,8 +139,25 @@ main { padding: var(--space-8) var(--space-6); max-width: 1320px; margin: 0 auto
 .run-grid { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: var(--space-6); }
 .shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr)); gap: var(--space-3); }
 .shot { margin: 0; min-width: 0; background: var(--color-bg); border: 1px solid var(--color-line); }
-.shot img { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; object-position: top; display: block; }
-.shot[data-vp="mobile"] img { aspect-ratio: 9 / 14; }
+.shot-open { all: unset; display: block; width: 100%; cursor: zoom-in; }
+.shot-open:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+.shot-open:hover .frame img { filter: brightness(1.12); }
+.frame { position: relative; display: block; width: 100%; aspect-ratio: 16 / 10; overflow: hidden; background: repeating-linear-gradient(-45deg, var(--color-surface) 0 12px, var(--color-bg) 12px 24px); }
+.shot[data-vp="mobile"] .frame { aspect-ratio: 9 / 16; }
+.frame img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; opacity: 0; transition: opacity var(--duration-base) var(--ease-out); }
+.frame[data-state="ready"] img { opacity: 1; }
+.frame[data-state="loading"]::after { content: "LOADING FRAME"; position: absolute; left: var(--space-2); bottom: var(--space-2); font: var(--text-xs) var(--font-mono); letter-spacing: .12em; color: var(--color-muted); animation: frame-pulse 1.2s steps(2) infinite; }
+.frame-err { position: absolute; inset: 0; display: grid; place-items: center; padding: var(--space-2); text-align: center; font: var(--text-xs) var(--font-mono); color: var(--color-danger); }
+@keyframes frame-pulse { 50% { opacity: .35; } }
+.lightbox { width: min(1200px, 96vw); max-height: 94vh; padding: 0; border: 2px solid var(--color-accent); background: var(--color-bg); color: var(--color-text); }
+.lightbox::backdrop { background: rgba(4, 8, 10, .86); }
+.lightbox figure { margin: 0; }
+.lightbox-bar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--color-line); position: sticky; top: 0; background: var(--color-bg); z-index: 1; }
+.lightbox-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.lightbox .frame { aspect-ratio: auto; min-height: 240px; }
+.lightbox .frame img { position: static; height: auto; object-fit: contain; }
+.lightbox figcaption { padding: var(--space-2) var(--space-3); font: var(--text-xs) var(--font-mono); overflow-wrap: anywhere; }
+@media (prefers-reduced-motion: reduce) { .frame img { transition: none; } .frame[data-state="loading"]::after { animation: none; } }
 .shot figcaption { padding: var(--space-2); font: var(--text-xs) var(--font-mono); color: var(--color-muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .feed { max-height: 70vh; overflow: auto; font: var(--text-xs)/1.5 var(--font-mono); margin: 0; padding: 0; list-style: none; }
 .feed li { display: grid; grid-template-columns: 64px 74px minmax(0, 1fr); overflow-wrap: anywhere; gap: var(--space-2); padding: 6px var(--space-3); border-bottom: 1px solid #1c2a33; }

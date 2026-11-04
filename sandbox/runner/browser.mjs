@@ -83,6 +83,20 @@ export function newSink() {
 }
 
 let shotCounter = 0;
+/** ~320px wide viewport thumbnail, scaled by Chromium itself so the sandbox needs no image library. */
+async function thumbnail(page, dir, file, vp) {
+  const cdp = await page.context().newCDPSession(page);
+  try {
+    const y = await page.evaluate(() => window.scrollY);
+    const { data } = await cdp.send("Page.captureScreenshot", { format: "jpeg", quality: 60, clip: { x: 0, y, width: vp.width, height: vp.height, scale: Math.min(1, 320 / vp.width) } });
+    fs.mkdirSync(path.join(dir, "thumbs"), { recursive: true });
+    fs.writeFileSync(path.join(dir, "thumbs", file), Buffer.from(data, "base64"));
+    return `thumbs/${file}`;
+  } finally {
+    await cdp.detach().catch(() => {});
+  }
+}
+
 export async function shoot(page, sink, meta) {
   const dir = "/work/out/shots";
   fs.mkdirSync(dir, { recursive: true });
@@ -93,7 +107,8 @@ export async function shoot(page, sink, meta) {
     const opts = { path: path.join(dir, file), type: "jpeg", quality: 72, timeout: 8000 };
     if (meta.full && height > vp.height) Object.assign(opts, { fullPage: true, clip: { x: 0, y: 0, width: vp.width, height: Math.min(height, 2400) } });
     await withTimeout(page.screenshot(opts), 10000, "screenshot");
-    const shot = { file, page: page.url(), viewport: meta.viewport, label: meta.label, step: meta.step, flow: meta.flow };
+    const thumb = await withTimeout(thumbnail(page, dir, file, vp), 6000, "thumbnail").catch(() => undefined);
+    const shot = { file, thumb, page: page.url(), viewport: meta.viewport, label: meta.label, step: meta.step, flow: meta.flow };
     sink.shots.push(shot);
     emit("shot", shot);
     return file;
