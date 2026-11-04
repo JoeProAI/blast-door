@@ -248,12 +248,30 @@ main { padding: var(--space-8) var(--space-6); max-width: 1320px; margin: 0 auto
 .ctn-head { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 4fr); gap: var(--space-8); align-items: center; margin-bottom: var(--space-8); }
 .ctn-head h1 em { color: var(--color-accent); font-style: normal; }
 .ctn-launch { margin-top: var(--space-4); display: grid; gap: var(--space-3); justify-items: start; }
-.door { position: relative; aspect-ratio: 3 / 4; border: 6px solid #000; background: repeating-linear-gradient(0deg, #0b1318 0 14px, #0e1820 14px 15px); box-shadow: inset 0 0 0 4px var(--color-line), var(--shadow-lg); overflow: hidden; }
-.door-leaf { position: absolute; top: 0; bottom: 0; width: 50%; background: var(--hazard), var(--color-accent); background-size: 56px 56px; border: 4px solid #000; transition: transform var(--duration-slow) var(--ease-out); }
-.door-l { left: 0; transform: translateX(calc((var(--seal) - 1) * 100%)); }
-.door-r { right: 0; transform: translateX(calc((1 - var(--seal)) * 100%)); }
-.door[data-breached="true"] .door-leaf { filter: saturate(0) brightness(.6); }
-.door-read { position: absolute; left: 50%; bottom: var(--space-4); transform: translateX(-50%); background: #000; color: var(--color-accent); font: 700 var(--text-sm) var(--font-mono); letter-spacing: .16em; padding: var(--space-2) var(--space-3); border: 2px solid var(--color-accent); white-space: nowrap; }
+.door { position: relative; margin: 0; aspect-ratio: 3 / 4; border: 6px solid #000; background: repeating-linear-gradient(0deg, #0b1318 0 14px, #0e1820 14px 15px); box-shadow: inset 0 0 0 4px var(--color-line), var(--shadow-lg); overflow: hidden; transition: box-shadow var(--duration-slow) var(--ease-out); }
+.door-segs { list-style: none; margin: 0; padding: 0; position: absolute; inset: 0; display: grid; grid-template-rows: repeat(6, minmax(0, 1fr)); }
+.door-seg { position: relative; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: 4px; padding: 0 var(--space-3); border-bottom: 2px solid #000; overflow: hidden; }
+.door-seg[data-side="r"] { align-items: flex-end; }
+.door-seg::before { content: ""; position: absolute; inset: 0; background: var(--hazard), var(--color-accent); background-size: 56px 56px; border-inline: 4px solid #000; transform: translateX(-101%); transition: transform 420ms cubic-bezier(.7, 0, .2, 1.25), filter var(--duration-base) var(--ease-out); }
+.door-seg[data-side="r"]::before { transform: translateX(101%); }
+.door-seg[data-phase="running"]::before { transform: translateX(-86%); animation: crawl 1s linear infinite; }
+.door-seg[data-side="r"][data-phase="running"]::before { transform: translateX(86%); }
+.door-seg[data-phase="held"]::before { transform: none; }
+.door-seg[data-phase="breached"]::before { transform: translateX(-45%); filter: hue-rotate(-40deg) saturate(1.6) brightness(.8); }
+.door-seg[data-side="r"][data-phase="breached"]::before { transform: translateX(45%); }
+.door-tag { position: relative; z-index: 1; background: #000; color: var(--color-muted); font: 700 10px/1 var(--font-mono); letter-spacing: .12em; text-transform: uppercase; padding: 4px 6px; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.door-t { color: var(--color-muted); font-weight: 500; }
+.door-seg[data-phase="running"] .door-t { color: var(--color-accent); }
+.door-seg[data-phase="held"] .door-tag { color: var(--color-accent); }
+.door-seg[data-phase="held"] .door-t { color: var(--color-success); }
+.door-seg[data-phase="breached"] .door-t { color: var(--color-danger); }
+.door-wheel { position: absolute; left: 50%; top: 50%; width: 34%; aspect-ratio: 1; translate: -50% -50%; border-radius: 50%; border: 8px solid #000; background: radial-gradient(circle, #000 0 14%, transparent 15%), linear-gradient(0deg, transparent 44%, #000 44% 56%, transparent 56%), linear-gradient(90deg, transparent 44%, #000 44% 56%, transparent 56%); opacity: 0; scale: .6; transition: opacity var(--duration-base) var(--ease-out), scale var(--duration-slow) var(--ease-out), rotate 900ms cubic-bezier(.6, 0, .2, 1); pointer-events: none; }
+.door[data-state="sealed"] .door-wheel { opacity: 1; scale: 1; rotate: 270deg; transition-delay: 450ms; }
+.door[data-state="sealed"] { box-shadow: inset 0 0 0 4px var(--color-success), 0 0 0 2px var(--color-success), var(--shadow-lg); }
+.door[data-state="breached"] { box-shadow: inset 0 0 0 4px var(--color-danger), 0 0 0 2px var(--color-danger), var(--shadow-lg); }
+.door-read { position: absolute; left: 50%; bottom: var(--space-3); transform: translateX(-50%); z-index: 2; background: #000; color: var(--color-accent); font: 700 var(--text-sm) var(--font-mono); letter-spacing: .16em; padding: var(--space-2) var(--space-3); border: 2px solid var(--color-accent); white-space: nowrap; }
+.door[data-state="sealed"] .door-read { color: var(--color-success); border-color: var(--color-success); }
+.door[data-state="breached"] .door-read { color: var(--color-danger); border-color: var(--color-danger); }
 .ctn-grid { list-style: none; margin: 0 0 var(--space-8); padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 2px solid var(--color-line); }
 .ctn-cell { padding: var(--space-4); border: 1px solid var(--color-line); background: var(--color-surface); min-width: 0; position: relative; transition: background var(--duration-base) var(--ease-out); }
 .ctn-cell h2 { font-family: var(--font-display); font-size: var(--text-xl); margin: var(--space-1) 0; }
@@ -288,10 +306,10 @@ main { padding: var(--space-8) var(--space-6); max-width: 1320px; margin: 0 auto
 @media (max-width: 1100px) { .ctn-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 760px) {
   .ctn-head { grid-template-columns: minmax(0, 1fr); }
-  .door { max-width: 220px; }
+  .door { max-width: none; aspect-ratio: 4 / 3; }
   .ctn-grid, .ctn-host dl { grid-template-columns: minmax(0, 1fr); }
 }
-@media (prefers-reduced-motion: reduce) { .door-leaf { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .door, .door-seg::before, .door-wheel { transition: none !important; animation: none !important; } .door[data-state="sealed"] .door-wheel { rotate: none; } }
 
 /* ---- narrow screens: rail, run table, panel heads ------------------------------------ */
 .rail nav { flex-wrap: wrap; }
