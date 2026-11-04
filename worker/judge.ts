@@ -218,7 +218,22 @@ export function clip(text: string, max: number): string {
   return `${(at > max * 0.6 ? cut.slice(0, at) : cut).replace(/[\s,;:(]+$/, "")}...`;
 }
 
+const SANDBOX_BLOCK = /ERR_TUNNEL_CONNECTION_FAILED|ERR_PROXY_CONNECTION_FAILED|ERR_BLOCKED_BY/i;
+
+/** Requests the sandbox allowlist refused are our doing, not the site's. Older runners logged them as console errors. */
+export function reclassifySignals(signals: Signal[]): Signal[] {
+  for (const s of signals) {
+    if (s.kind !== "console_error" && s.kind !== "request_failed") continue;
+    if (!SANDBOX_BLOCK.test(s.message)) continue;
+    const url = (s.detail as any)?.url ?? s.message.match(/https?:\/\/\S+/)?.[0] ?? "";
+    s.kind = "blocked_egress";
+    s.detail = { ...(s.detail as object), url, source: "reclassified" };
+  }
+  return signals;
+}
+
 export function buildCandidates(sweep: SweepOutput, judged: JudgedShot[], max = config.budget.maxCandidates): CandidateBug[] {
+  reclassifySignals(sweep.signals);
   const out: CandidateBug[] = [];
   const signals = sweep.signals ?? [];
 
