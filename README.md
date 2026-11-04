@@ -84,6 +84,18 @@ Measured on the demo VM, a full sweep (planner, browser sweep, vision judge, adv
 
 Pricing sketch: free public bay (3 sweeps a day), Team at $49 a month for 500 sweeps with the CI gate, Agency at $199 a month for 3,000 sweeps, Platform at $0.02 per sandboxed session. At the most expensive measured run, inference stays under 15 percent of Team revenue.
 
+## Vultr requirements map
+
+| Hard requirement | Where it lives | Proof |
+| --- | --- | --- |
+| A Vultr VM is the control plane, not static hosting | Next.js app and API in [`app/`](app), run state in SQLite via [`lib/db.ts`](lib/db.ts), orchestrator, reaper and broker in [`worker/`](worker), systemd units and Caddy in [`deploy/`](deploy) | [`/api/health`](https://66-135-31-133.sslip.io/api/health) on the vc2-2c-4gb in ewr reports active runs and token spend from the VM's own database |
+| Every LLM call goes through Vultr Serverless Inference | Base URL `https://api.vultrinference.com/v1` in [`lib/config.ts`](lib/config.ts), the only `fetch` to `/chat/completions` and the startup `GET /v1/models` check in [`lib/inference.ts`](lib/inference.ts). Sandboxes call the [`worker/broker.ts`](worker/broker.ts) endpoint, never a model | [`test/unit/vultr-only.test.ts`](test/unit/vultr-only.test.ts) fails CI if another provider host or SDK appears, or if anything but `lib/inference.ts` calls a model. Token spend per run is on every run page |
+| Sandboxes run as containers on Vultr, never in the app process | Container caps and lifecycle in [`worker/sandbox.ts`](worker/sandbox.ts), image in [`sandbox/Dockerfile`](sandbox/Dockerfile), in-container runner in [`sandbox/runner/`](sandbox/runner), egress in [`worker/egress-proxy.ts`](worker/egress-proxy.ts) and [`scripts/net-setup.sh`](scripts/net-setup.sh) | `docker events` create, start, die and destroy receipts for each scenario in [`proof/2026-11-03T23-56-16-239Z/proof.json`](proof/2026-11-03T23-56-16-239Z/proof.json). Real container tests in [`test/sandbox/`](test/sandbox). Live drill at [/containment](https://66-135-31-133.sslip.io/containment) |
+| Public repo with setup docs | This README, [`docs/SETUP.md`](docs/SETUP.md), [`deploy/app.env.example`](deploy/app.env.example), MIT [`LICENSE`](LICENSE) | `npm run prove` ([`scripts/prove.ts`](scripts/prove.ts)) rebuilds the proof pack against any deployed control plane |
+| Live demo URL | Caddy with automatic HTTPS in [`deploy/Caddyfile`](deploy/Caddyfile) | https://66-135-31-133.sslip.io |
+| Architecture explanation | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) with Mermaid diagrams of the control plane, broker, sandbox network and pipeline | Matches the units in [`deploy/`](deploy) one to one |
+| Demo video with an on-camera containment moment | Shot list and voice-over in `docs/DEMO.md` | The containment drill and its 1x, 4x and 12x replay at [/containment](https://66-135-31-133.sslip.io/containment) |
+
 ## Quick start
 
 See [docs/SETUP.md](docs/SETUP.md) for provisioning, environment variables and deployment, and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the diagrams.
