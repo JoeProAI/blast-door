@@ -10,6 +10,13 @@ const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--ff-mono" });
 export const metadata: Metadata = {
   title: "Blast Door | QA sweeps inside sealed sandboxes",
   description: "A browser agent QA-sweeps any web app inside throwaway Docker sandboxes on a Vultr VM, with a vision judge, an adversary, and receipts.",
+  metadataBase: new URL(process.env.BLASTDOOR_PUBLIC_URL || "https://66-135-31-133.sslip.io"),
+  openGraph: {
+    title: "Blast Door",
+    description: "Sandboxed browser QA on Vultr. A vision judge grades every frame, an adversary attacks every claim, and every run ships receipts.",
+    type: "website",
+  },
+  twitter: { card: "summary_large_image", title: "Blast Door" },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
