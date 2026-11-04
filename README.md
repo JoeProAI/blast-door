@@ -53,6 +53,8 @@ The containment drill sends six attacks at that box and records what stopped eac
 
 A host canary file is hashed before and after the drill.
 
+![The containment drill](docs/img/containment.png)
+
 ## Threat model
 
 Assume the target page is hostile and the model can be talked into anything. The defenses do not rely on the model behaving: it has no tools beyond seven browser actions, every action is validated against the element list and the host allowlist, and even a fully hijacked browser can only reach the target and the broker. The broker never returns the key, only an action. Generated test code is treated the same way: it is validated, then run in its own capped container that can only reach the target.

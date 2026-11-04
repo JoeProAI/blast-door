@@ -278,3 +278,4 @@ main { padding: var(--space-8) var(--space-6); max-width: 1320px; margin: 0 auto
   .rail nav a { padding: var(--space-3) var(--space-2); letter-spacing: .08em; }
   .table { display: block; overflow-x: auto; max-width: 100%; }
 }
+.signals li { min-width: 0; overflow-wrap: anywhere; }
