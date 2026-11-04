@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Saira_Stencil, Chivo, JetBrains_Mono } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
+import { REPO_URL, revision } from "@/lib/revision";
 
 const display = Saira_Stencil({ subsets: ["latin"], weight: "700", variable: "--ff-display" });
 const body = Chivo({ subsets: ["latin"], variable: "--ff-body" });
@@ -40,8 +41,21 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <footer className="foot">
           <span>Every model call: Vultr Serverless Inference.</span>
           <span>Every browser: a throwaway container, destroyed after use.</span>
+          <LiveBuild />
         </footer>
       </body>
     </html>
+  );
+}
+
+function LiveBuild() {
+  const r = revision();
+  if (!r) return <span>Live build: not recorded on this host.</span>;
+  return (
+    <span>
+      Live build <a href={`${REPO_URL}/commit/${r.commit}`}>{r.short}</a>
+      {r.onMain ? " on main" : r.main ? <> (<a href={`${REPO_URL}/commit/${r.main}`}>main {r.main.slice(0, 7)}</a> plus PRs in review)</> : null}
+      {r.dirty ? " with local edits" : null}
+    </span>
   );
 }
