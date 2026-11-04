@@ -46,10 +46,11 @@ test("injection heuristics fire on the planted phrasing", () => {
   assert.deepEqual(heuristicScan("Add two items to your cart and check out."), []);
 });
 
-test("public targets are limited to the planted fixtures", () => {
-  assert.equal(checkTarget("http://shop.blastdoor.local/", false).ok, true);
-  assert.equal(checkTarget("https://example.com/", false).ok, false);
-  assert.equal(checkTarget("https://example.com/", true).ok, true);
-  assert.equal(checkTarget("file:///etc/passwd", true).ok, false);
-  assert.equal(checkTarget("http://u:p@example.com/", true).ok, false);
+test("target shape check: fixtures flagged, credentials and odd schemes refused", () => {
+  const f = checkTarget("http://shop.blastdoor.local/", false);
+  assert.ok(f.ok && f.fixture);
+  const p = checkTarget("https://example.com/", false);
+  assert.ok(p.ok && !p.fixture, "public URLs pass shape and go on to the SSRF guard and quota");
+  assert.equal(checkTarget("ftp://example.com/", false).ok, false);
+  assert.equal(checkTarget("https://u:p@example.com/", true).ok, false);
 });

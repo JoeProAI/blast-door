@@ -94,6 +94,9 @@ export function db(): Database.Database {
       created_at INTEGER NOT NULL
     );
   `);
+  try {
+    d.exec(`ALTER TABLE runs ADD COLUMN client TEXT`);
+  } catch {}
   g.__bdDb = d;
   return d;
 }
@@ -102,13 +105,13 @@ export function newId(prefix: string): string {
   return `${prefix}_${Date.now().toString(36)}${crypto.randomBytes(4).toString("hex")}`;
 }
 
-export function createRun(input: { kind: RunKind; target: string; goal?: string | null; source: string; tokenBudget?: number }): RunRow {
+export function createRun(input: { kind: RunKind; target: string; goal?: string | null; source: string; tokenBudget?: number; client?: string | null }): RunRow {
   const id = newId(input.kind === "containment" ? "ctn" : "run");
   db()
     .prepare(
-      `INSERT INTO runs (id, kind, target, goal, status, created_at, token_budget, source) VALUES (?, ?, ?, ?, 'queued', ?, ?, ?)`,
+      `INSERT INTO runs (id, kind, target, goal, status, created_at, token_budget, source, client) VALUES (?, ?, ?, ?, 'queued', ?, ?, ?, ?)`,
     )
-    .run(id, input.kind, input.target, input.goal ?? null, Date.now(), input.tokenBudget ?? config.budget.runTokens, input.source);
+    .run(id, input.kind, input.target, input.goal ?? null, Date.now(), input.tokenBudget ?? config.budget.runTokens, input.source, input.client ?? null);
   return getRun(id)!;
 }
 

@@ -1,8 +1,8 @@
 import { config } from "./config";
 
-export type TargetCheck = { ok: true; url: string } | { ok: false; error: string };
+export type TargetCheck = { ok: true; url: string; fixture: boolean } | { ok: false; error: string };
 
-/** Public visitors may only sweep the planted fixtures. Operators (with the operator key) may sweep any http(s) URL. */
+/** Shape check only. Public non-fixture URLs must also pass guardPublicUrl and the public quota. */
 export function checkTarget(raw: unknown, operator: boolean): TargetCheck {
   if (typeof raw !== "string" || raw.length > 500) return { ok: false, error: "Target must be a URL under 500 characters." };
   let u: URL;
@@ -14,10 +14,8 @@ export function checkTarget(raw: unknown, operator: boolean): TargetCheck {
   if (!/^https?:$/.test(u.protocol)) return { ok: false, error: "Only http and https targets can be swept." };
   if (u.username || u.password) return { ok: false, error: "Credentials in the URL are not accepted." };
   const normalized = u.toString();
-  if (operator) return { ok: true, url: normalized };
-  const allowed = config.publicTargets.map((t) => new URL(t).hostname);
-  if (!allowed.includes(u.hostname)) return { ok: false, error: `Public runs are limited to the planted targets: ${config.publicTargets.join(", ")}` };
-  return { ok: true, url: normalized };
+  const fixture = config.publicTargets.map((t) => new URL(t).hostname).includes(u.hostname);
+  return { ok: true, url: normalized, fixture };
 }
 
 export function isOperator(key: string | null | undefined): boolean {

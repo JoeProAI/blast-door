@@ -60,7 +60,7 @@ export async function executeSweep(run: RunRow) {
   });
 
   const { plan, usedFallback } = await stage(run.id, "plan", async () => {
-    const p = await makePlan(run.id, recon, allowHosts, run.goal);
+    const p = await makePlan(run.id, recon, allowHosts, run.goal, run.source === "public-url" ? config.publicAny.maxPages : undefined);
     addEvent(run.id, "plan", "plan", { ...p.plan, usedFallback: p.usedFallback });
     return p;
   });
