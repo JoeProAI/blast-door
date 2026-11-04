@@ -28,8 +28,8 @@ function readOut<T>(r: SandboxResult, file: string): T | null {
 }
 
 /** Shot paths in the report are relative to the run directory so the UI can serve them. */
-function rebase<T extends { file: string }>(shots: T[], r: SandboxResult): T[] {
-  return shots.map((s) => ({ ...s, file: path.join(r.relDir, "out", "shots", s.file) }));
+function rebase<T extends { file: string; thumb?: string }>(shots: T[], r: SandboxResult): T[] {
+  return shots.map((s) => ({ ...s, file: path.join(r.relDir, "out", "shots", s.file), thumb: s.thumb ? path.join(r.relDir, "out", "shots", s.thumb) : undefined }));
 }
 
 async function stage<T>(runId: string, name: string, fn: () => Promise<T>): Promise<T> {

@@ -107,7 +107,7 @@ export function RunView({ id, target, goal, initialStatus }: { id: string; targe
     if (el && el.scrollHeight - el.scrollTop - el.clientHeight < 120) el.scrollTop = el.scrollHeight;
   }, [events.length]);
 
-  const shots = useMemo(() => events.filter((e) => e.kind === "shot").map((e) => e.data as { file: string; label: string; viewport: string; page: string }), [events]);
+  const shots = useMemo(() => events.filter((e) => e.kind === "shot").map((e) => e.data as { file: string; thumb?: string; label: string; viewport: string; page: string }), [events]);
   const stageState = (key: string) => {
     if (events.some((e) => e.stage === key && e.kind === "stage_failed")) return "failed";
     if (events.some((e) => e.stage === key && e.kind === "stage_done")) return "done";
@@ -225,14 +225,7 @@ export function RunView({ id, target, goal, initialStatus }: { id: string; targe
         <section aria-labelledby="shots-title">
           <h2 className="section-title" id="shots-title">Screenshot trail</h2>
           {shots.length ? (
-            <div className="shots">
-              {shots.map((s) => (
-                <figure className="shot" key={s.file} data-vp={s.viewport}>
-                  <a href={fileUrl(id, s.file)} target="_blank" rel="noreferrer"><img src={fileUrl(id, s.file)} alt={`${s.label} at ${s.page}`} loading="lazy" /></a>
-                  <figcaption title={s.page}>{s.viewport.toUpperCase()} / {s.label}</figcaption>
-                </figure>
-              ))}
-            </div>
+            <ShotTrail id={id} shots={shots} />
           ) : (
             <p className="empty">{run.status === "queued" ? "Queued. The worker picks up one run at a time; this one starts when the bay clears." : run.status === "failed" ? "No screenshots were captured before the run failed." : "No frames yet. The first screenshot lands when recon loads the target."}</p>
           )}
@@ -269,5 +262,68 @@ export function RunView({ id, target, goal, initialStatus }: { id: string; targe
         </section>
       </div>
     </article>
+  );
+}
+
+type TrailShot = { file: string; thumb?: string; label: string; viewport: string; page: string };
+
+function ShotFrame({ src, alt }: { src: string; alt: string }) {
+  const [state, setState] = useState<"loading" | "ready" | "error">("loading");
+  return (
+    <span className="frame" data-state={state}>
+      {state === "error" ? <span className="frame-err">Frame missing from the run bay.</span> : null}
+      <img src={src} alt={alt} loading="lazy" decoding="async" onLoad={() => setState("ready")} onError={() => setState("error")} />
+    </span>
+  );
+}
+
+function ShotTrail({ id, shots }: { id: string; shots: TrailShot[] }) {
+  const [open, setOpen] = useState<number | null>(null);
+  const dlg = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const d = dlg.current;
+    if (!d) return;
+    if (open !== null && !d.open) d.showModal();
+    if (open === null && d.open) d.close();
+  }, [open]);
+  const cur = open !== null ? shots[open] : null;
+  const step = (n: number) => setOpen((o) => (o === null ? o : (o + n + shots.length) % shots.length));
+  return (
+    <>
+      <div className="shots">
+        {shots.map((s, i) => (
+          <figure className="shot" key={s.file} data-vp={s.viewport}>
+            <button type="button" className="shot-open" onClick={() => setOpen(i)} aria-label={`Open frame ${i + 1}: ${s.label}`}>
+              <ShotFrame src={fileUrl(id, s.thumb ?? s.file)} alt={`${s.label} at ${s.page}`} />
+            </button>
+            <figcaption title={s.page}>{s.viewport.toUpperCase()} / {s.label}</figcaption>
+          </figure>
+        ))}
+      </div>
+      <dialog
+        ref={dlg}
+        className="lightbox"
+        aria-label="Screenshot viewer"
+        onClose={() => setOpen(null)}
+        onClick={(e) => { if (e.target === e.currentTarget) setOpen(null); }}
+        onKeyDown={(e) => { if (e.key === "ArrowRight") step(1); if (e.key === "ArrowLeft") step(-1); }}
+      >
+        {cur && (
+          <figure>
+            <div className="lightbox-bar">
+              <span className="label">Frame {open! + 1} of {shots.length} / {cur.viewport}</span>
+              <span className="lightbox-actions">
+                <button type="button" className="btn btn-ghost" onClick={() => step(-1)} aria-label="Previous frame">Prev</button>
+                <button type="button" className="btn btn-ghost" onClick={() => step(1)} aria-label="Next frame">Next</button>
+                <a className="btn btn-ghost" href={fileUrl(id, cur.file)} target="_blank" rel="noreferrer">Full size</a>
+                <button type="button" className="btn" onClick={() => setOpen(null)} autoFocus>Close</button>
+              </span>
+            </div>
+            <ShotFrame key={cur.file} src={fileUrl(id, cur.file)} alt={`${cur.label} at ${cur.page}`} />
+            <figcaption>{cur.label} <span className="muted">{cur.page}</span></figcaption>
+          </figure>
+        )}
+      </dialog>
+    </>
   );
 }

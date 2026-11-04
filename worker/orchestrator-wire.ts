@@ -10,7 +10,7 @@ export function wire(runId: string, stage: string): Pick<SandboxTask, "onLine" |
   return {
     onLine: (m) => {
       const { type, _dir, ...rest } = m;
-      if (type === "shot") addEvent(runId, stage, "shot", { ...rest, file: path.join(_dir, "out", "shots", rest.file) });
+      if (type === "shot") addEvent(runId, stage, "shot", { ...rest, file: path.join(_dir, "out", "shots", rest.file), thumb: rest.thumb ? path.join(_dir, "out", "shots", rest.thumb) : undefined });
       else if (type === "step") addEvent(runId, stage, "agent_step", rest);
       else addEvent(runId, stage, `runner_${type}`, rest);
     },
