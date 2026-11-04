@@ -1,5 +1,6 @@
 import http from "node:http";
 import net from "node:net";
+import { isPrivateAddress } from "../lib/ssrf";
 import dns from "node:dns/promises";
 import { config } from "../lib/config";
 import { logger } from "../lib/log";
@@ -13,28 +14,7 @@ import { leaseForIp, type Lease, type EgressRecord } from "./registry";
  */
 const log = logger("egress");
 
-export function isPrivateAddress(ip: string): boolean {
-  if (net.isIPv6(ip)) {
-    const l = ip.toLowerCase();
-    if (l.startsWith("::ffff:")) return isPrivateAddress(l.slice(7));
-    return l === "::1" || l === "::" || l.startsWith("fc") || l.startsWith("fd") || l.startsWith("fe80") || l.startsWith("ff");
-  }
-  const p = ip.split(".").map(Number);
-  if (p.length !== 4 || p.some((n) => !Number.isInteger(n))) return true;
-  const [a, b] = p;
-  return (
-    a === 0 ||
-    a === 10 ||
-    a === 127 ||
-    (a === 100 && b >= 64 && b <= 127) ||
-    (a === 169 && b === 254) ||
-    (a === 172 && b >= 16 && b <= 31) ||
-    (a === 192 && b === 168) ||
-    (a === 192 && b === 0) ||
-    (a === 198 && (b === 18 || b === 19)) ||
-    a >= 224
-  );
-}
+export { isPrivateAddress };
 
 export interface Decision {
   allowed: boolean;
@@ -126,6 +106,11 @@ export function createEgressProxy(): http.Server {
     note(lease, "CONNECT", host ?? "", port, d);
     if (!d.allowed) {
       clientSocket.end(`HTTP/1.1 403 Forbidden\r\nX-Blast-Door: egress-blocked\r\nContent-Length: ${BLOCK_BODY.length}\r\n\r\n${BLOCK_BODY}`);
+      return;
+    }
+    if (d.reason !== "fixture route" && isPrivateAddress(d.upstreamHost!)) {
+      note(lease, "CONNECT", host ?? "", port, { allowed: false, reason: "pinned address is private" });
+      clientSocket.destroy();
       return;
     }
     const up = net.connect({ host: d.upstreamHost!, port: d.upstreamPort! }, () => {

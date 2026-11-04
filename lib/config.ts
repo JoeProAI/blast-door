@@ -67,6 +67,12 @@ export const config = {
     "http://hostile.blastdoor.local/",
   ]),
   publicRunsPerDay: num("BLASTDOOR_PUBLIC_RUNS_PER_DAY", 40),
+  publicAny: {
+    perClientPerDay: num("BLASTDOOR_PUBLIC_URL_PER_CLIENT", 3),
+    globalPerDay: num("BLASTDOOR_PUBLIC_URL_PER_DAY", 30),
+    runTokens: num("BLASTDOOR_PUBLIC_URL_RUN_TOKENS", 60_000),
+    maxPages: num("BLASTDOOR_PUBLIC_URL_MAX_PAGES", 3),
+  },
   sandbox: {
     image: str("BLASTDOOR_SANDBOX_IMAGE", "blastdoor/sandbox:1"),
     // Each orchestrator only reaps containers it owns, so tests and the live worker never collide.

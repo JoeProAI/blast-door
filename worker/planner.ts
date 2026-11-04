@@ -62,13 +62,13 @@ export function fallbackPlan(recon: Recon, allowHosts: string[]): QaPlan {
   };
 }
 
-export function normalizePlan(raw: unknown, recon: Recon, allowHosts: string[], goal?: string | null): QaPlan {
+export function normalizePlan(raw: unknown, recon: Recon, allowHosts: string[], goal?: string | null, maxPages = config.budget.maxPages): QaPlan {
   const p = (raw ?? {}) as Partial<QaPlan>;
   const pages: QaPlan["pages"] = [{ url: recon.target, purpose: "landing page" }];
   for (const pg of p.pages ?? []) {
     const u = sameSite(String(pg.url ?? ""), allowHosts, recon.target);
     if (u && !pages.some((x) => x.url === u)) pages.push({ url: u, purpose: String(pg.purpose ?? "").slice(0, 160) });
-    if (pages.length >= config.budget.maxPages) break;
+    if (pages.length >= maxPages) break;
   }
   const flows: QaPlan["flows"] = [];
   for (const f of p.flows ?? []) {
@@ -82,7 +82,7 @@ export function normalizePlan(raw: unknown, recon: Recon, allowHosts: string[], 
   return { summary: String(p.summary ?? "").slice(0, 400) || (goal ? `Focus: ${goal}` : "General QA sweep"), pages, flows, checks: checks.length ? checks : fallbackPlan(recon, allowHosts).checks };
 }
 
-export async function makePlan(runId: string, recon: Recon, allowHosts: string[], goal?: string | null): Promise<{ plan: QaPlan; usedFallback: boolean }> {
+export async function makePlan(runId: string, recon: Recon, allowHosts: string[], goal?: string | null, maxPages = config.budget.maxPages): Promise<{ plan: QaPlan; usedFallback: boolean }> {
   const reconText = [
     `Target: ${recon.target} (HTTP ${recon.status ?? "?"})`,
     `Title: ${recon.title}`,
@@ -104,7 +104,7 @@ export async function makePlan(runId: string, recon: Recon, allowHosts: string[]
       maxTokens: 1200,
       schema: { name: "qa_plan", schema: PLAN_SCHEMA },
     });
-    return { plan: normalizePlan(r.json, recon, allowHosts, goal), usedFallback: false };
+    return { plan: normalizePlan(r.json, recon, allowHosts, goal, maxPages), usedFallback: false };
   } catch {
     return { plan: fallbackPlan(recon, allowHosts), usedFallback: true };
   }

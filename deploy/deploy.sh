@@ -4,7 +4,7 @@
 set -euo pipefail
 : "${BLASTDOOR_VM_IP:?}" "${BLASTDOOR_SSH_KEY_FILE:?}"
 SSH="ssh -i $BLASTDOOR_SSH_KEY_FILE -o StrictHostKeyChecking=accept-new -o BatchMode=yes"
-rsync -az --delete -e "$SSH" \
+rsync -az --delete --exclude proof/ -e "$SSH" \
   --exclude node_modules --exclude .next --exclude .data --exclude .git --exclude 'proof/*/screens' --exclude sandbox/runner/node_modules \
   ./ "root@$BLASTDOOR_VM_IP:/opt/blast-door/"
 $SSH "root@$BLASTDOOR_VM_IP" 'bash /opt/blast-door/deploy/install.sh'

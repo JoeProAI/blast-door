@@ -51,7 +51,7 @@ export function LaunchForm() {
               </button>
             ))}
           </div>
-          <span className="field-hint">Public runs can hit the planted targets. Any other URL needs the operator key.</span>
+          <span className="field-hint">Any public http or https site works: 3 sweeps a day per visitor, 3 pages each, private and internal addresses refused. The operator key lifts the limits.</span>
         </div>
         <div className="field">
           <label className="label" htmlFor="goal">What should the agent try</label>
