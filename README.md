@@ -90,3 +90,10 @@ npm run prove           # on the VM: containment drill plus a shop sweep, writes
 `proof/` holds a proof pack generated on the demo VM: `proof.json` with every scenario's expected and observed results, container ids, caps, cgroup numbers, timings and token spend, plus `summary.md` and screenshots.
 
 License: MIT
+
+## Presentation
+
+![Blast Door cover](docs/cover.png)
+
+- Slides: [docs/deck.md](docs/deck.md) (Marp source) and [docs/deck.pdf](docs/deck.pdf), 10 slides built from real screenshots of the live app.
+- Demo video plan: [docs/DEMO.md](docs/DEMO.md), a 2:45 shot list and voice-over with the containment moment at 1:15 to 1:55.
