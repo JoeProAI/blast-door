@@ -149,7 +149,7 @@ export async function judgeShots(runId: string, shots: Shot[]): Promise<JudgedSh
       label: shot.label,
       viewport: shot.viewport,
       scores: j.scores,
-      issues: j.issues.map((i) => ({ title: clip(RUBRIC.includes(i.title as RubricKey) || i.title.trim().length < 8 ? i.evidence || i.title : i.title, 160), rubric: i.rubric, confidence: i.confidence })),
+      issues: j.issues.map((i) => ({ title: i.title, rubric: i.rubric, confidence: i.confidence })),
       model: j.model,
       error: j.error,
     });
@@ -254,7 +254,7 @@ export function buildCandidates(sweep: SweepOutput, judged: JudgedShot[], max = 
       visionSeen.add(key);
       out.push({
         id: "",
-        title: i.title,
+        title: clip(RUBRIC.includes(i.title as RubricKey) || i.title.trim().length < 8 ? i.evidence || i.title : i.title, 160),
         category: i.rubric,
         severity: i.severity,
         source: "vision",

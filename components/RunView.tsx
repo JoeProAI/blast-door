@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-type Ev = { id: number; ts: number; stage: string; kind: string; data: Record<string, any> };
+export type Ev = { id: number; ts: number; stage: string; kind: string; data: Record<string, any> };
 type RunState = { status?: string; stage?: string; tokens?: number; cost?: number; budget?: number; error?: string | null };
 
 const STAGES = [
@@ -26,7 +26,7 @@ function lowest(scores: Record<string, number> | null) {
   return `${k.replace("_", " ")} ${v}/10`;
 }
 
-function describe(e: Ev): { text: string; tone?: "bad" | "good" | "warn" } {
+export function describe(e: Ev): { text: string; tone?: "bad" | "good" | "warn" } {
   const d = e.data;
   switch (e.kind) {
     case "stage_start": return { text: `stage ${e.stage} started` };
@@ -47,6 +47,8 @@ function describe(e: Ev): { text: string; tone?: "bad" | "good" | "warn" } {
     case "shot": return { text: `screenshot ${d.label} (${d.viewport})` };
     case "runner_flow": return { text: `flow "${d.name}": ${d.goal}` };
     case "runner_log": return { text: String(d.msg ?? ""), tone: d.level === "warn" ? "warn" : undefined };
+    case "runner_probe": return { text: `probe ${d.probe} reported${d.result?.env ? `: ${d.result.env.length} env values hashed, ${d.result.fsScan?.filesScanned ?? 0} files scanned` : d.result?.threads ? `: ${d.result.threads} threads for ${d.result.wallMs}ms` : ""}` };
+    case "runner_progress": return { text: `probe ${d.probe} ${(d.elapsedMs / 1000).toFixed(1)}s${d.runnerSpawnErrors !== undefined ? `, forks refused ${d.runnerSpawnErrors}` : ""}${d.mb !== undefined ? `, holding ${d.mb} MB` : ""}` };
     case "runner_done": return { text: `runner ${d.mode} done${d.shots !== undefined ? `: ${d.shots} shots, ${d.signals} signals` : ""}`, tone: "good" };
     case "runner_error": return { text: `runner error: ${d.message}`, tone: "bad" };
     case "judge_shot": return d.scores ? { text: `judge ${d.viewport} ${d.label}: lowest ${lowest(d.scores)}, ${d.issues?.length ?? 0} issues` } : { text: `judge ${d.label}: no verdict (${d.error})`, tone: "warn" };
@@ -54,14 +56,18 @@ function describe(e: Ev): { text: string; tone?: "bad" | "good" | "warn" } {
     case "adversary_verdict": return { text: `${d.bug} ${d.verdict === "survived" ? "SURVIVED" : "KILLED"}: ${d.argument}`, tone: d.verdict === "survived" ? "warn" : undefined };
     case "repro_generated": return d.generator === "none" ? { text: `${d.bug} no test written: ${d.error}`, tone: "warn" } : { text: `${d.bug} repro test written by ${d.generator === "template" ? "a fixed template" : "the model"}, ${d.lines} lines` };
     case "repro_result": return { text: `${d.bug} repro ${String(d.status).replace("_", " ")}${d.ms ? ` in ${(d.ms / 1000).toFixed(1)}s` : ""}`, tone: d.status === "reproduced" ? "bad" : d.status === "not_reproduced" ? "good" : "warn" };
+    case "scenario_start": return { text: `scenario ${e.stage}: ${d.name}` };
+    case "scenario_done": return { text: `scenario ${e.stage} ${d.pass ? "HELD" : "BREACHED"} in ${(d.ms / 1000).toFixed(1)}s`, tone: d.pass ? "good" : "bad" };
+    case "host_snapshot": return { text: `host ${d.phase}: canary sha256 ${String(d.canarySha256).slice(0, 12)}, ${d.processCount} processes${d.phase === "after" ? `, drift ${d.processDrift}, attacker sink hits ${d.newAttackerHits}` : ""}`, tone: d.phase === "after" ? (d.canaryUnchanged && d.newAttackerHits === 0 ? "good" : "bad") : undefined };
     case "run_start": return { text: `run started against ${d.target}` };
-    case "run_done": return { text: `run sealed: ${d.shots} screenshots, ${d.signals} signals${d.candidates !== undefined ? `, ${d.survived} of ${d.candidates} claims survived, ${d.reproduced} reproduced` : ""}`, tone: "good" };
+    case "run_done": if (d.scenarios !== undefined) return { text: `containment sealed: ${d.passed} of ${d.scenarios} scenarios held`, tone: d.failed ? "bad" : "good" };
+      return { text: `run sealed: ${d.shots} screenshots, ${d.signals} signals${d.candidates !== undefined ? `, ${d.survived} of ${d.candidates} claims survived, ${d.reproduced} reproduced` : ""}`, tone: "good" };
     case "run_failed": return { text: `run failed: ${d.message}`, tone: "bad" };
     default: return { text: `${e.kind} ${JSON.stringify(d).slice(0, 160)}` };
   }
 }
 
-function fileUrl(id: string, p: string) {
+export function fileUrl(id: string, p: string) {
   return `/api/runs/${id}/file?p=${encodeURIComponent(p)}`;
 }
 
