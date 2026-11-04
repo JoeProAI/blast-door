@@ -117,7 +117,23 @@ export function RunView({ id, target, goal, initialStatus }: { id: string; targe
   const t0 = events[0]?.ts ?? 0;
   const pct = run.budget ? Math.min(100, ((run.tokens ?? 0) / run.budget) * 100) : 0;
   const live = events.filter((e) => e.kind === "sandbox_created").length - events.filter((e) => e.kind === "sandbox_destroyed").length;
-  const signals: any[] = report?.sweep?.signals ?? [];
+  const allSignals: any[] = report?.sweep?.signals ?? [];
+  const signals = allSignals.filter((s) => s.kind !== "blocked_egress");
+  const blockedEgress = useMemo(() => {
+    const m = new Map<string, { url: string; host: string; n: number; pages: Set<string> }>();
+    for (const s of allSignals) {
+      if (s.kind !== "blocked_egress") continue;
+      const url = String(s.detail?.url || s.message.match(/https?:\/\/\S+/)?.[0] || "");
+      let host = "unknown host";
+      try { host = new URL(url).host; } catch {}
+      const k = url.split("?")[0] || host;
+      const e = m.get(k) ?? { url: k, host, n: 0, pages: new Set<string>() };
+      e.n++;
+      e.pages.add(s.page);
+      m.set(k, e);
+    }
+    return [...m.values()].sort((a, b) => b.n - a.n);
+  }, [allSignals]);
   const bugs: any[] = report?.bugs ?? [];
   const survived = bugs.filter((b) => b.adversary?.verdict === "survived");
   const killed = bugs.filter((b) => b.adversary?.verdict !== "survived");
@@ -246,6 +262,17 @@ export function RunView({ id, target, goal, initialStatus }: { id: string; targe
                   ))}
                 </ul>
               ) : <p className="empty">The sweep recorded no console errors, failed requests, broken links, overflow, or accessibility signals.</p>}
+              <h3 className="label egress-title">Egress blocked by the sandbox ({blockedEgress.length})</h3>
+              {blockedEgress.length ? (
+                <>
+                  <p className="field-hint">These requests left the page for hosts outside this run&apos;s allowlist, so the egress proxy refused them. They are a property of the sandbox, not bugs in the site, and never become claims.</p>
+                  <ul className="signals egress-list">
+                    {blockedEgress.slice(0, 40).map((e) => (
+                      <li key={e.url}><span className="tag">{e.host}</span><span className="egress-url">{e.url}</span><span className="tag">x{e.n}</span></li>
+                    ))}
+                  </ul>
+                </>
+              ) : <p className="empty">The page made no requests outside the allowlist.</p>}
             </>
           )}
           {report?.error && <p className="alert" role="alert"><strong>REPORT UNREADABLE</strong> The run finished but the report did not load. Refresh to retry.</p>}

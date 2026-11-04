@@ -31,7 +31,14 @@ export async function launch(task) {
 export function instrument(page, sink, viewport) {
   const pageUrl = () => page.url();
   page.on("console", (m) => {
-    if (m.type() === "error") sink.signals.push({ kind: "console_error", page: pageUrl(), viewport, message: m.text().slice(0, 400) });
+    if (m.type() !== "error") return;
+    const text = m.text();
+    if (/ERR_TUNNEL_CONNECTION_FAILED|ERR_PROXY_CONNECTION_FAILED|ERR_BLOCKED_BY/i.test(text)) {
+      const url = m.location()?.url || "";
+      sink.signals.push({ kind: "blocked_egress", page: pageUrl(), viewport, message: `blocked by sandbox allowlist ${url}`.slice(0, 300), detail: { url, failure: text.slice(0, 120), source: "console" } });
+      return;
+    }
+    sink.signals.push({ kind: "console_error", page: pageUrl(), viewport, message: text.slice(0, 400) });
   });
   page.on("pageerror", (e) => sink.signals.push({ kind: "page_error", page: pageUrl(), viewport, message: String(e.message || e).slice(0, 400) }));
   page.on("crash", () => sink.signals.push({ kind: "unresponsive", page: pageUrl(), viewport, message: "renderer process crashed" }));
