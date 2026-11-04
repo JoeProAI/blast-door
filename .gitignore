@@ -7,3 +7,4 @@ next-env.d.ts
 !.env.example
 sandbox/runner/node_modules
 test-results
+.revision.json
