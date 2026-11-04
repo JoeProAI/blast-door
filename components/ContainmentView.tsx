@@ -72,10 +72,37 @@ export function ContainmentView({ runId, initialStatus, missing }: { runId: stri
   }, [shown]);
   const held = Object.values(phases).filter((x) => x === "held").length;
   const breached = Object.values(phases).filter((x) => x === "breached").length;
-  const sealed = (held + breached) / SCENARIOS.length;
+  const closed = held + breached;
+  const doorState = breached ? "breached" : held === SCENARIOS.length ? "sealed" : Object.values(phases).includes("running") ? "running" : closed ? "closing" : "open";
   const t0 = events[0]?.ts ?? 0;
+  const sealedAt: Record<string, string> = {};
+  for (const e of shown) if (e.kind === "scenario_done") sealedAt[e.stage] = ((e.ts - t0) / 1000).toFixed(1);
+
+  // Each segment that slams shut shakes the door once. Reduced motion skips it.
+  const doorRef = useRef<HTMLElement>(null);
+  const lastClosed = useRef(0);
+  useEffect(() => {
+    const el = doorRef.current;
+    const prev = lastClosed.current;
+    lastClosed.current = closed;
+    if (!el || closed <= prev || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const big = held === SCENARIOS.length;
+    el.animate(
+      big
+        ? [{ transform: "none" }, { transform: "translate(0, 6px) scale(.985)" }, { transform: "translate(-3px, -2px)" }, { transform: "translate(2px, 1px)" }, { transform: "none" }]
+        : [{ transform: "none" }, { transform: "translateX(-3px)" }, { transform: "translateX(3px)" }, { transform: "none" }],
+      { duration: big ? 520 : 220, easing: "cubic-bezier(.2,.9,.3,1)", delay: 260 },
+    );
+  }, [closed, held]);
   const byKey = new Map<string, any>((report?.scenarios ?? []).map((s: any) => [s.key, s]));
   const replayDone = replay && replay.upTo >= events.length;
+
+  // The door is the on-camera moment, so replay brings it back into view first.
+  function startReplay(speed: number) {
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    doorRef.current?.scrollIntoView({ block: "center", behavior: reduce ? "auto" : "smooth" });
+    setReplay({ upTo: 0, speed });
+  }
 
   async function start() {
     setLaunch({ state: "sending" });
@@ -110,11 +137,26 @@ export function ContainmentView({ runId, initialStatus, missing }: { runId: stri
           </p>
           {launcher}
         </div>
-        <div className="door" aria-hidden="true" style={{ ["--seal" as string]: String(sealed) }} data-breached={breached > 0}>
-          <span className="door-leaf door-l" />
-          <span className="door-leaf door-r" />
-          <span className="door-read">{held}/{SCENARIOS.length} HELD</span>
-        </div>
+        <figure className="door" ref={doorRef} data-state={doorState} aria-labelledby="door-read">
+          <ol className="door-segs" aria-label="Door segments, one per attack">
+            {SCENARIOS.map((s, i) => {
+              const ph = phases[s.key] ?? "idle";
+              const at = sealedAt[s.key];
+              return (
+                <li key={s.key} className="door-seg" data-phase={ph} data-side={i % 2 ? "r" : "l"}>
+                  <span className="door-tag">{String(i + 1).padStart(2, "0")} {s.name}</span>
+                  <span className="door-tag door-t">
+                    {ph === "held" ? `SEALED +${at}s` : ph === "breached" ? `BREACHED +${at}s` : ph === "running" ? "UNDER ATTACK" : "OPEN"}
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+          <span className="door-wheel" aria-hidden="true" />
+          <figcaption className="door-read" id="door-read" aria-live="polite">
+            {doorState === "sealed" ? `DOOR SEALED ${held}/${SCENARIOS.length}` : breached ? `BREACH ${breached} / HELD ${held}` : `${held}/${SCENARIOS.length} SEALED`}
+          </figcaption>
+        </figure>
       </header>
 
       {missing && <p className="alert" role="alert"><strong>NO SUCH DRILL</strong> That run id is not a containment run. Showing nothing until you pick one from the run log.</p>}
@@ -166,7 +208,7 @@ export function ContainmentView({ runId, initialStatus, missing }: { runId: stri
               <h2 className="label" id="ctn-feed-title" style={{ margin: 0 }}>Receipts timeline</h2>
               <div className="replay" role="group" aria-label="Replay controls">
                 {SPEEDS.map((sp) => (
-                  <button key={sp} type="button" className="chip" disabled={!events.length || status === "running"} aria-pressed={replay?.speed === sp} onClick={() => setReplay({ upTo: 0, speed: sp })}>
+                  <button key={sp} type="button" className="chip" disabled={!events.length || status === "running"} aria-pressed={replay?.speed === sp} onClick={() => startReplay(sp)}>
                     Replay {sp}x
                   </button>
                 ))}
