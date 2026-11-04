@@ -284,7 +284,7 @@ main { padding: var(--space-8) var(--space-6); max-width: 1320px; margin: 0 auto
 .why-meter { margin: 0; display: grid; border: 2px solid var(--color-line); background: var(--color-surface); }
 .why-meter div { padding: var(--space-4); border-bottom: 1px solid var(--color-line); border-left: 6px solid var(--color-accent); }
 .why-meter dt { font: 700 var(--text-xs) var(--font-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--color-muted); }
-.why-meter dd { margin: var(--space-1) 0 0; font: 700 var(--text-2xl) var(--font-mono); color: var(--color-text); }
+.why-meter dd { margin: var(--space-1) 0 0; font: 700 clamp(1.5rem, 2.6vw, 2.25rem)/1.1 var(--font-mono); white-space: nowrap; color: var(--color-text); }
 .why-section { margin-bottom: var(--space-8); }
 .why-buyers { list-style: none; margin: 0; padding: 0; border-top: 2px solid var(--color-line); }
 .why-buyers li { display: grid; grid-template-columns: 5rem minmax(0, 3fr) minmax(0, 4fr) minmax(0, 4fr); gap: var(--space-4); padding: var(--space-4) 0; border-bottom: 1px solid var(--color-line); align-items: start; }
