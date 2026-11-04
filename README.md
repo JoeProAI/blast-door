@@ -74,6 +74,16 @@ All model calls go to Vultr Serverless Inference at `https://api.vultrinference.
 
 A full sweep of the planted shop uses about 35,000 tokens, about $0.007. Each run has a token budget (250,000 by default) and there is a daily cap, both shown in the UI. Results are cached by request hash, `max_tokens` is capped per call, and every agent flow has a step limit, so no loop calls the model unboundedly. The VM is a $20 a month vc2-2c-4gb, and it is the only billable resource.
 
+## Who pays for this
+
+Measured on the demo VM, a full sweep (planner, browser sweep, vision judge, adversary, repro tests in a second sandbox) costs $0.0026 to $0.0119 in Vultr inference, so one dollar buys 84 to 385 sweeps. The VM is a flat $20 a month. Run ids and token counts are on [/why](https://66-135-31-133.sslip.io/why).
+
+- **QA teams** run a sweep on every pull request. [`docs/ci/blast-door.yml`](docs/ci/blast-door.yml) calls `POST /api/runs` with the operator key from a repo secret, waits, and fails the check only when a high or critical claim survives the adversary.
+- **Agencies** sweep every client site on a schedule and hand over the Markdown or JSON report with screenshots, repro steps and a Playwright test.
+- **Agent platforms** that browse for their users buy the containment layer: capped throwaway containers, an egress allowlist with connect-time IP checks, a broker that keeps keys out of the sandbox, and receipts.
+
+Pricing sketch: free public bay (3 sweeps a day), Team at $49 a month for 500 sweeps with the CI gate, Agency at $199 a month for 3,000 sweeps, Platform at $0.02 per sandboxed session. At the most expensive measured run, inference stays under 15 percent of Team revenue.
+
 ## Quick start
 
 See [docs/SETUP.md](docs/SETUP.md) for provisioning, environment variables and deployment, and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the diagrams.
