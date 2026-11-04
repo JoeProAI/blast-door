@@ -154,6 +154,16 @@ export function RunView({ id, target, goal, initialStatus }: { id: string; targe
         })}
       </ol>
 
+      {report && !report.error && report.bugs && <Findings bugs={bugs} summary={report.summary} />}
+
+      <nav className="run-nav" aria-label="Run sections">
+        {report?.bugs && <a href="#findings">Findings</a>}
+        {report?.bugs && <a href="#bugs-title">Claims</a>}
+        <a href="#shots-title">Frames</a>
+        {report && <a href="#signals-title">Signals</a>}
+        <a href="#feed-title">Receipts</a>
+      </nav>
+
       {report && !report.error && report.bugs && (
         <section aria-labelledby="bugs-title" className="bugs-section">
           <div className="bugs-head">
@@ -166,14 +176,15 @@ export function RunView({ id, target, goal, initialStatus }: { id: string; targe
           </div>
           {survived.length ? (
             <div className="bugs">
-              {survived.map((b) => (
-                <article className="bug" key={b.id} data-sev={b.severity} aria-labelledby={`bug-${b.id}`}>
-                  <header className="bug-head">
+              {survived.map((b, i) => (
+                <details className="bug" key={b.id} data-sev={b.severity} open={i === 0} id={`claim-${b.id}`}>
+                  <summary className="bug-head">
                     <span className="tag sev">{b.severity}</span>
                     <span className="tag">{b.id}</span>
                     <span className="tag">{b.source} / {b.viewport}</span>
                     <h3 id={`bug-${b.id}`}>{b.title}</h3>
-                  </header>
+                    <span className="repro bug-row-repro" data-status={b.repro?.status ?? "not_run"}>{REPRO_LABEL[b.repro?.status ?? "not_run"]}</span>
+                  </summary>
                   {b.shot && (
                     <figure className="bug-shot">
                       <a href={fileUrl(id, b.shot)} target="_blank" rel="noreferrer">
@@ -202,7 +213,7 @@ export function RunView({ id, target, goal, initialStatus }: { id: string; targe
                       </details>
                     )}
                   </div>
-                </article>
+                </details>
               ))}
             </div>
           ) : (
@@ -238,7 +249,7 @@ export function RunView({ id, target, goal, initialStatus }: { id: string; targe
           )}
           {report && !report.error && (
             <>
-              <h2 className="section-title">Signals</h2>
+              <h2 className="section-title" id="signals-title">Signals</h2>
               {signals.length ? (
                 <ul className="signals">
                   {signals.slice(0, 80).map((s, i) => (
@@ -269,5 +280,44 @@ export function RunView({ id, target, goal, initialStatus }: { id: string; targe
         </section>
       </div>
     </article>
+  );
+}
+
+const SEVS = ["critical", "high", "medium", "low"] as const;
+
+/** First viewport answer: what survived, how bad, and how the funnel narrowed. */
+function Findings({ bugs, summary }: { bugs: any[]; summary?: { candidates: number; survived: number; killed: number; reproduced: number } }) {
+  const survived = bugs.filter((b) => b.adversary?.verdict === "survived");
+  const c = summary?.candidates ?? bugs.length;
+  const funnel = [
+    { k: "Candidates", n: c, note: "raised by flows, vision and signals" },
+    { k: "Survived", n: summary?.survived ?? survived.length, note: "beat the adversary" },
+    { k: "Reproduced", n: summary?.reproduced ?? 0, note: "failing test in the code sandbox" },
+  ];
+  return (
+    <section className="findings" id="findings" aria-labelledby="findings-title">
+      <h2 className="label" id="findings-title">What it found</h2>
+      <div className="sev-tally" role="list" aria-label="Surviving claims by severity">
+        {SEVS.map((s) => {
+          const n = survived.filter((b) => b.severity === s).length;
+          return (
+            <div key={s} className="sev-cell" data-sev={s} data-zero={n === 0} role="listitem">
+              <b>{n}</b>
+              <span className="label">{s}</span>
+            </div>
+          );
+        })}
+      </div>
+      <ol className="funnel" aria-label="Claim funnel">
+        {funnel.map((f) => (
+          <li key={f.k} style={{ ["--w" as string]: `${c ? Math.max(4, (f.n / c) * 100) : 4}%` }}>
+            <span className="funnel-bar" aria-hidden="true" />
+            <span className="funnel-n">{f.n}</span>
+            <span className="label">{f.k}</span>
+            <span className="field-hint">{f.note}</span>
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
