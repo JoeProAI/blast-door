@@ -313,3 +313,9 @@ details.bug:not([open]) > :not(summary) { display: none; }
 @media (max-width: 860px) { .findings { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 480px) { .sev-tally { grid-template-columns: repeat(2, minmax(0, 1fr)); } .sev-cell { min-height: 76px; } }
 @media (prefers-reduced-motion: reduce) { .funnel-bar { animation: none; } }
+@media (max-width: 640px) {
+  .stages { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .stage { padding: var(--space-2); }
+  .stage .field-hint { display: none; }
+  .stage-name { font-size: var(--text-sm); }
+}
