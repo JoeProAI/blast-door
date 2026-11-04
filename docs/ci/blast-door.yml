@@ -1,0 +1,37 @@
+# Copy to .github/workflows/blast-door.yml and copy blast-door-gate.mjs to .github/blast-door-gate.mjs.
+# Repo secret: BLASTDOOR_OPERATOR_KEY. Repo variables: BLASTDOOR_URL (your control plane)
+# and BLASTDOOR_TARGET (the preview or staging URL to sweep).
+name: Blast Door sweep
+
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: URL to sweep
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: blast-door-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Sweep the target and fail on surviving high-severity claims
+        env:
+          BLASTDOOR_URL: ${{ vars.BLASTDOOR_URL }}
+          BLASTDOOR_TARGET: ${{ github.event.inputs.target || vars.BLASTDOOR_TARGET }}
+          BLASTDOOR_OPERATOR_KEY: ${{ secrets.BLASTDOOR_OPERATOR_KEY }}
+          BLASTDOOR_GOAL: "Pull request ${{ github.event.pull_request.number }}: check the pages this change touches"
+          BLASTDOOR_FAIL_ON: high
+        run: node .github/blast-door-gate.mjs
