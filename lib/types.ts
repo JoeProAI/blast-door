@@ -62,7 +62,7 @@ export interface CandidateBug {
   title: string;
   category: string;
   severity: "critical" | "high" | "medium" | "low";
-  source: "vision" | "signal";
+  source: "vision" | "signal" | "flow";
   page: string;
   viewport: string;
   shot?: string;
@@ -71,4 +71,42 @@ export interface CandidateBug {
   confidence: number;
   steps: string[];
   signalKinds?: string[];
+  logs?: string[];
+  flow?: string;
+  detail?: Record<string, unknown>;
+}
+
+export type RubricKey = "layout_integrity" | "visual_bugs" | "readability_contrast" | "broken_media" | "responsive" | "error_states";
+
+export interface JudgedShot {
+  shot: Shot;
+  scores: Record<RubricKey, number> | null;
+  issues: { title: string; rubric: RubricKey; severity: CandidateBug["severity"]; region: Region; evidence: string; confidence: number }[];
+  model: string | null;
+  error?: string;
+}
+
+export interface AdversaryVerdict {
+  verdict: "survived" | "killed";
+  modelVerdict: "holds" | "killed" | "unavailable";
+  argument: string;
+  counter: string;
+  gate: { screenshot: boolean; log: boolean; steps: boolean };
+  model: string | null;
+}
+
+export interface ReproResult {
+  status: "reproduced" | "not_reproduced" | "inconclusive" | "not_run";
+  generator: "template" | "model" | "none";
+  file?: string;
+  code?: string;
+  error?: string;
+  durationMs?: number;
+  artifacts?: string[];
+  container?: string;
+}
+
+export interface Bug extends CandidateBug {
+  adversary: AdversaryVerdict;
+  repro?: ReproResult;
 }

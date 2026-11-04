@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-type Ev = { id: number; ts: number; stage: string; kind: string; data: Record<string, any> };
+export type Ev = { id: number; ts: number; stage: string; kind: string; data: Record<string, any> };
 type RunState = { status?: string; stage?: string; tokens?: number; cost?: number; budget?: number; error?: string | null };
 
 const STAGES = [
@@ -10,9 +10,23 @@ const STAGES = [
   { key: "sweep", name: "Sweep", note: "Agent drives the browser" },
   { key: "judge", name: "Judge", note: "Vision rubric per screenshot" },
   { key: "adversary", name: "Adversary", note: "Second model attacks each claim" },
+  { key: "repro", name: "Repro", note: "Generated tests run in a second sandbox" },
 ];
 
-function describe(e: Ev): { text: string; tone?: "bad" | "good" | "warn" } {
+const REPRO_LABEL: Record<string, string> = {
+  reproduced: "Reproduced: the generated test fails on the live target",
+  not_reproduced: "Not reproduced: the generated test passes on the live target",
+  inconclusive: "Inconclusive: the test errored before its assertion ran",
+  not_run: "Not run",
+};
+
+function lowest(scores: Record<string, number> | null) {
+  if (!scores) return null;
+  const [k, v] = Object.entries(scores).sort((a, b) => a[1] - b[1])[0];
+  return `${k.replace("_", " ")} ${v}/10`;
+}
+
+export function describe(e: Ev): { text: string; tone?: "bad" | "good" | "warn" } {
   const d = e.data;
   switch (e.kind) {
     case "stage_start": return { text: `stage ${e.stage} started` };
@@ -33,16 +47,27 @@ function describe(e: Ev): { text: string; tone?: "bad" | "good" | "warn" } {
     case "shot": return { text: `screenshot ${d.label} (${d.viewport})` };
     case "runner_flow": return { text: `flow "${d.name}": ${d.goal}` };
     case "runner_log": return { text: String(d.msg ?? ""), tone: d.level === "warn" ? "warn" : undefined };
+    case "runner_probe": return { text: `probe ${d.probe} reported${d.result?.env ? `: ${d.result.env.length} env values hashed, ${d.result.fsScan?.filesScanned ?? 0} files scanned` : d.result?.threads ? `: ${d.result.threads} threads for ${d.result.wallMs}ms` : ""}` };
+    case "runner_progress": return { text: `probe ${d.probe} ${(d.elapsedMs / 1000).toFixed(1)}s${d.runnerSpawnErrors !== undefined ? `, forks refused ${d.runnerSpawnErrors}` : ""}${d.mb !== undefined ? `, holding ${d.mb} MB` : ""}` };
     case "runner_done": return { text: `runner ${d.mode} done${d.shots !== undefined ? `: ${d.shots} shots, ${d.signals} signals` : ""}`, tone: "good" };
     case "runner_error": return { text: `runner error: ${d.message}`, tone: "bad" };
+    case "judge_shot": return d.scores ? { text: `judge ${d.viewport} ${d.label}: lowest ${lowest(d.scores)}, ${d.issues?.length ?? 0} issues` } : { text: `judge ${d.label}: no verdict (${d.error})`, tone: "warn" };
+    case "candidates": return { text: `${d.count} candidate claims: ${d.flow} from flows, ${d.vision} from vision, ${d.signal} from signals` };
+    case "adversary_verdict": return { text: `${d.bug} ${d.verdict === "survived" ? "SURVIVED" : "KILLED"}: ${d.argument}`, tone: d.verdict === "survived" ? "warn" : undefined };
+    case "repro_generated": return d.generator === "none" ? { text: `${d.bug} no test written: ${d.error}`, tone: "warn" } : { text: `${d.bug} repro test written by ${d.generator === "template" ? "a fixed template" : "the model"}, ${d.lines} lines` };
+    case "repro_result": return { text: `${d.bug} repro ${String(d.status).replace("_", " ")}${d.ms ? ` in ${(d.ms / 1000).toFixed(1)}s` : ""}`, tone: d.status === "reproduced" ? "bad" : d.status === "not_reproduced" ? "good" : "warn" };
+    case "scenario_start": return { text: `scenario ${e.stage}: ${d.name}` };
+    case "scenario_done": return { text: `scenario ${e.stage} ${d.pass ? "HELD" : "BREACHED"} in ${(d.ms / 1000).toFixed(1)}s`, tone: d.pass ? "good" : "bad" };
+    case "host_snapshot": return { text: `host ${d.phase}: canary sha256 ${String(d.canarySha256).slice(0, 12)}, ${d.processCount} processes${d.phase === "after" ? `, drift ${d.processDrift}, attacker sink hits ${d.newAttackerHits}` : ""}`, tone: d.phase === "after" ? (d.canaryUnchanged && d.newAttackerHits === 0 ? "good" : "bad") : undefined };
     case "run_start": return { text: `run started against ${d.target}` };
-    case "run_done": return { text: `run sealed: ${d.shots} screenshots, ${d.signals} signals`, tone: "good" };
+    case "run_done": if (d.scenarios !== undefined) return { text: `containment sealed: ${d.passed} of ${d.scenarios} scenarios held`, tone: d.failed ? "bad" : "good" };
+      return { text: `run sealed: ${d.shots} screenshots, ${d.signals} signals${d.candidates !== undefined ? `, ${d.survived} of ${d.candidates} claims survived, ${d.reproduced} reproduced` : ""}`, tone: "good" };
     case "run_failed": return { text: `run failed: ${d.message}`, tone: "bad" };
     default: return { text: `${e.kind} ${JSON.stringify(d).slice(0, 160)}` };
   }
 }
 
-function fileUrl(id: string, p: string) {
+export function fileUrl(id: string, p: string) {
   return `/api/runs/${id}/file?p=${encodeURIComponent(p)}`;
 }
 
@@ -93,6 +118,9 @@ export function RunView({ id, target, goal, initialStatus }: { id: string; targe
   const pct = run.budget ? Math.min(100, ((run.tokens ?? 0) / run.budget) * 100) : 0;
   const live = events.filter((e) => e.kind === "sandbox_created").length - events.filter((e) => e.kind === "sandbox_destroyed").length;
   const signals: any[] = report?.sweep?.signals ?? [];
+  const bugs: any[] = report?.bugs ?? [];
+  const survived = bugs.filter((b) => b.adversary?.verdict === "survived");
+  const killed = bugs.filter((b) => b.adversary?.verdict !== "survived");
 
   return (
     <article aria-labelledby="run-title">
@@ -118,13 +146,80 @@ export function RunView({ id, target, goal, initialStatus }: { id: string; targe
           const st = stageState(s.key);
           return (
             <li key={s.key} className="stage" data-state={st} aria-current={st === "active" ? "step" : undefined} style={{ listStyle: "none" }}>
-              <span className="label">{st === "idle" ? (s.key === "judge" || s.key === "adversary" ? "Next milestone" : "Waiting") : st}</span>
+              <span className="label">{st === "idle" ? "Waiting" : st}</span>
               <div className="stage-name">{s.name}</div>
               <span className="field-hint">{s.note}</span>
             </li>
           );
         })}
       </ol>
+
+      {report && !report.error && report.bugs && (
+        <section aria-labelledby="bugs-title" className="bugs-section">
+          <div className="bugs-head">
+            <h2 className="section-title" id="bugs-title">Claims that survived</h2>
+            <p className="mono bugs-tally">{survived.length} of {bugs.length} survived the adversary / {report.summary?.reproduced ?? 0} reproduced in the code sandbox</p>
+            <div className="exports">
+              <a className="btn btn-ghost" href={`/api/runs/${id}/export?format=md`} download>Export Markdown</a>
+              <a className="btn btn-ghost" href={`/api/runs/${id}/export?format=json`} download>Export JSON</a>
+            </div>
+          </div>
+          {survived.length ? (
+            <div className="bugs">
+              {survived.map((b) => (
+                <article className="bug" key={b.id} data-sev={b.severity} aria-labelledby={`bug-${b.id}`}>
+                  <header className="bug-head">
+                    <span className="tag sev">{b.severity}</span>
+                    <span className="tag">{b.id}</span>
+                    <span className="tag">{b.source} / {b.viewport}</span>
+                    <h3 id={`bug-${b.id}`}>{b.title}</h3>
+                  </header>
+                  {b.shot && (
+                    <figure className="bug-shot">
+                      <a href={fileUrl(id, b.shot)} target="_blank" rel="noreferrer">
+                        <img src={fileUrl(id, b.shot)} alt={`Screenshot evidence for ${b.id}`} loading="lazy" />
+                        {b.region && <i className="region" aria-hidden="true" style={{ left: `${b.region.x * 100}%`, top: `${b.region.y * 100}%`, width: `${b.region.w * 100}%`, height: `${b.region.h * 100}%` }} />}
+                      </a>
+                      <figcaption>{b.page}</figcaption>
+                    </figure>
+                  )}
+                  <div className="bug-body">
+                    <h4 className="label">Repro steps</h4>
+                    <ol>{b.steps.map((s: string, i: number) => <li key={i}>{s}</li>)}</ol>
+                    <h4 className="label">Evidence</h4>
+                    <ul>{[...b.evidence, ...(b.logs ?? []).slice(0, 3)].map((e: string, i: number) => <li key={i}>{e}</li>)}</ul>
+                    <h4 className="label">Adversary / {b.adversary.model ?? "unavailable"}</h4>
+                    <p>{b.adversary.argument}</p>
+                    {b.adversary.counter && <p className="field-hint">Best counter it found: {b.adversary.counter}</p>}
+                    <h4 className="label">Repro test</h4>
+                    <p className="repro" data-status={b.repro?.status ?? "not_run"}>{REPRO_LABEL[b.repro?.status ?? "not_run"]}</p>
+                    {b.repro?.error && b.repro.status !== "not_reproduced" && <pre className="repro-err">{b.repro.error.split("\n").slice(0, 6).join("\n")}</pre>}
+                    {b.repro?.artifacts?.map((a: string) => <a key={a} className="mono" href={fileUrl(id, a)} target="_blank" rel="noreferrer">Failure screenshot from the code sandbox</a>)}
+                    {b.repro?.code && (
+                      <details>
+                        <summary>Generated test, written by {b.repro.generator === "template" ? "a fixed template" : "the model"}</summary>
+                        <pre><code>{b.repro.code}</code></pre>
+                      </details>
+                    )}
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="empty">No claim survived. The adversary killed every candidate, or the judge and sweep raised none. The killed list below shows why.</p>
+          )}
+          {killed.length > 0 && (
+            <details className="killed">
+              <summary>Killed by the adversary ({killed.length})</summary>
+              <ul>
+                {killed.map((b) => (
+                  <li key={b.id}><span className="tag">{b.id}</span><b>{b.title}</b><span>{b.adversary?.argument}</span></li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </section>
+      )}
 
       <div className="run-grid">
         <section aria-labelledby="shots-title">

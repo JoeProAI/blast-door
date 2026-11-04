@@ -25,6 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <nav aria-label="Primary">
             <Link href="/">Bay</Link>
             <Link href="/runs">Run log</Link>
+            <Link href="/containment">Containment</Link>
           </nav>
           <span className="rail-tag">VULTR EWR / VC2-2C-4GB / SANDBOX NET BD0</span>
         </header>
