@@ -113,3 +113,9 @@ test("vision issues are deduplicated per page, viewport and rubric", () => {
   assert.equal(c.length, 1);
   assert.equal(c[0].confidence, 0.8);
 });
+
+test("an issue titled with its rubric key gets the evidence sentence as its title", () => {
+  const j: JudgedShot[] = [{ ...judged[0], issues: [{ ...judged[0].issues[0], title: "responsive", evidence: "Cards run past the right edge at 390px" }] }];
+  const c = buildCandidates(sweep, j, 20).find((x) => x.source === "vision")!;
+  assert.equal(c.title, "Cards run past the right edge at 390px");
+});
