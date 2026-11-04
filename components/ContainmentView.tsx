@@ -97,6 +97,13 @@ export function ContainmentView({ runId, initialStatus, missing }: { runId: stri
   const byKey = new Map<string, any>((report?.scenarios ?? []).map((s: any) => [s.key, s]));
   const replayDone = replay && replay.upTo >= events.length;
 
+  // The door is the on-camera moment, so replay brings it back into view first.
+  function startReplay(speed: number) {
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    doorRef.current?.scrollIntoView({ block: "center", behavior: reduce ? "auto" : "smooth" });
+    setReplay({ upTo: 0, speed });
+  }
+
   async function start() {
     setLaunch({ state: "sending" });
     try {
@@ -201,7 +208,7 @@ export function ContainmentView({ runId, initialStatus, missing }: { runId: stri
               <h2 className="label" id="ctn-feed-title" style={{ margin: 0 }}>Receipts timeline</h2>
               <div className="replay" role="group" aria-label="Replay controls">
                 {SPEEDS.map((sp) => (
-                  <button key={sp} type="button" className="chip" disabled={!events.length || status === "running"} aria-pressed={replay?.speed === sp} onClick={() => setReplay({ upTo: 0, speed: sp })}>
+                  <button key={sp} type="button" className="chip" disabled={!events.length || status === "running"} aria-pressed={replay?.speed === sp} onClick={() => startReplay(sp)}>
                     Replay {sp}x
                   </button>
                 ))}
