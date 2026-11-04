@@ -1,0 +1,13 @@
+[Unit]
+Description=Blast Door sandbox network and egress firewall
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+EnvironmentFile=-/etc/blast-door/app.env
+ExecStart=/usr/bin/bash /opt/blast-door/scripts/net-setup.sh
+
+[Install]
+WantedBy=multi-user.target

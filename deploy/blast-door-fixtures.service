@@ -1,0 +1,18 @@
+[Unit]
+Description=Blast Door planted fixture sites (buggy shop, hostile page, attacker sink)
+After=network.target
+
+[Service]
+User=blastdoor
+Group=blastdoor
+WorkingDirectory=/opt/blast-door
+EnvironmentFile=/etc/blast-door/app.env
+ExecStart=/usr/bin/node fixtures/server.mjs
+Restart=always
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

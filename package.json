@@ -1,0 +1,38 @@
+{
+  "name": "blast-door",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start -p 3000 -H 127.0.0.1",
+    "worker": "tsx worker/index.ts",
+    "fixtures": "node fixtures/server.mjs",
+    "sandbox:build": "docker build -t blastdoor/sandbox:1 sandbox",
+    "net:setup": "sudo bash scripts/net-setup.sh",
+    "typecheck": "tsc --noEmit",
+    "lint:copy": "node scripts/lint-copy.mjs",
+    "test": "node --import tsx --test test/unit/*.test.ts",
+    "test:sandbox": "node --import tsx --test --test-concurrency=1 test/sandbox/*.test.ts"
+  },
+  "dependencies": {
+    "better-sqlite3": "^13.0.3",
+    "next": "16.4.5",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "tsx": "^4.23.15",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.18.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "typescript": "^5.9.3"
+  }
+}
